@@ -18,7 +18,11 @@ pub enum CustomRuleError {
     /// Failed to parse YAML
     ParseError(String),
     /// Invalid regex pattern
-    InvalidRegex { rule_id: String, pattern: String, error: String },
+    InvalidRegex {
+        rule_id: String,
+        pattern: String,
+        error: String,
+    },
     /// Invalid rule ID (must start with CUSTOM-)
     InvalidRuleId(String),
     /// Invalid severity value
@@ -32,14 +36,26 @@ impl std::fmt::Display for CustomRuleError {
         match self {
             CustomRuleError::IoError(e) => write!(f, "Failed to read file: {}", e),
             CustomRuleError::ParseError(e) => write!(f, "Failed to parse YAML: {}", e),
-            CustomRuleError::InvalidRegex { rule_id, pattern, error } => {
-                write!(f, "Invalid regex in rule {}: '{}' - {}", rule_id, pattern, error)
+            CustomRuleError::InvalidRegex {
+                rule_id,
+                pattern,
+                error,
+            } => {
+                write!(
+                    f,
+                    "Invalid regex in rule {}: '{}' - {}",
+                    rule_id, pattern, error
+                )
             }
             CustomRuleError::InvalidRuleId(id) => {
                 write!(f, "Invalid rule ID '{}': must start with 'CUSTOM-'", id)
             }
             CustomRuleError::InvalidSeverity(s) => {
-                write!(f, "Invalid severity '{}': must be info, minor, major, critical, or blocker", s)
+                write!(
+                    f,
+                    "Invalid severity '{}': must be info, minor, major, critical, or blocker",
+                    s
+                )
             }
             CustomRuleError::InvalidCategory(c) => {
                 write!(f, "Invalid category '{}': must be naming, security, bug, code_smell, complexity, documentation, or performance", c)
@@ -257,11 +273,10 @@ fn parse_category(s: &str) -> Option<RuleCategory> {
 
 /// Load custom rules from a YAML file
 pub fn load_custom_rules(path: &Path) -> Result<Vec<Box<dyn Rule>>, CustomRuleError> {
-    let content = fs::read_to_string(path)
-        .map_err(|e| CustomRuleError::IoError(e.to_string()))?;
+    let content = fs::read_to_string(path).map_err(|e| CustomRuleError::IoError(e.to_string()))?;
 
-    let config: CustomRulesConfig = serde_yaml::from_str(&content)
-        .map_err(|e| CustomRuleError::ParseError(e.to_string()))?;
+    let config: CustomRulesConfig =
+        serde_yaml::from_str(&content).map_err(|e| CustomRuleError::ParseError(e.to_string()))?;
 
     let mut rules: Vec<Box<dyn Rule>> = Vec::new();
 
@@ -276,8 +291,8 @@ pub fn load_custom_rules(path: &Path) -> Result<Vec<Box<dyn Rule>>, CustomRuleEr
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::NamedTempFile;
     use std::io::Write;
+    use tempfile::NamedTempFile;
 
     fn create_test_context(source: &str) -> (String, tree_sitter::Tree, crate::AnalyzerConfig) {
         let mut parser = tree_sitter::Parser::new();
@@ -659,8 +674,14 @@ rules:
         assert_eq!(parse_category("code_smell"), Some(RuleCategory::CodeSmell));
         assert_eq!(parse_category("codesmell"), Some(RuleCategory::CodeSmell));
         assert_eq!(parse_category("complexity"), Some(RuleCategory::Complexity));
-        assert_eq!(parse_category("documentation"), Some(RuleCategory::Documentation));
-        assert_eq!(parse_category("performance"), Some(RuleCategory::Performance));
+        assert_eq!(
+            parse_category("documentation"),
+            Some(RuleCategory::Documentation)
+        );
+        assert_eq!(
+            parse_category("performance"),
+            Some(RuleCategory::Performance)
+        );
         assert_eq!(parse_category("invalid"), None);
     }
 }

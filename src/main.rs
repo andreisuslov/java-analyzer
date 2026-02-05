@@ -405,13 +405,19 @@ fn run_analysis(cli: &Cli, path: &PathBuf) -> ExitCode {
     // Filter issues by module if requested
     if let Some(ref include_modules) = cli.modules {
         result.issues.retain(|issue| {
-            issue.module.as_ref().map_or(false, |m| include_modules.contains(m))
+            issue
+                .module
+                .as_ref()
+                .map_or(false, |m| include_modules.contains(m))
         });
     }
 
     if let Some(ref exclude_modules) = cli.exclude_modules {
         result.issues.retain(|issue| {
-            issue.module.as_ref().map_or(true, |m| !exclude_modules.contains(m))
+            issue
+                .module
+                .as_ref()
+                .map_or(true, |m| !exclude_modules.contains(m))
         });
     }
 
@@ -559,7 +565,10 @@ fn print_module_structure(result: &AnalysisResult, no_color: bool) {
         let issues_by_module = result.issues_by_module();
         for (name, module) in &modules.modules {
             let issue_count = issues_by_module.get(name).map_or(0, |v| v.len());
-            let parent_info = module.parent.as_ref().map_or(String::new(), |p| format!(" (parent: {})", p));
+            let parent_info = module
+                .parent
+                .as_ref()
+                .map_or(String::new(), |p| format!(" (parent: {})", p));
 
             if no_color {
                 println!("  {} - {} issues{}", name, issue_count, parent_info);
@@ -569,7 +578,12 @@ fn print_module_structure(result: &AnalysisResult, no_color: bool) {
                 } else {
                     "0".green().to_string()
                 };
-                println!("  {} - {} issues{}", name.cyan(), count_str, parent_info.dimmed());
+                println!(
+                    "  {} - {} issues{}",
+                    name.cyan(),
+                    count_str,
+                    parent_info.dimmed()
+                );
             }
         }
         println!();

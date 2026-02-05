@@ -58,10 +58,12 @@ pub use duplication::{
 pub use hotspots::{
     HotspotCategory, HotspotPriority, HotspotResult, HotspotStatus, SecurityHotspot,
 };
-pub use module::{BuildSystem, Module, ModuleStructure, detect_gradle, detect_maven};
+pub use module::{detect_gradle, detect_maven, BuildSystem, Module, ModuleStructure};
 pub use quality_gate::{ConditionResult, QualityCondition, QualityGate, QualityGateResult};
 pub use reports::{Report, ReportFormat};
-pub use rules::custom::{load_custom_rules, CustomRule, CustomRuleConfig, CustomRuleError, CustomRulesConfig};
+pub use rules::custom::{
+    load_custom_rules, CustomRule, CustomRuleConfig, CustomRuleError, CustomRulesConfig,
+};
 pub use rules::{AnalysisContext, Issue, OwaspCategory, Rule, RuleCategory, Severity};
 
 /// Configuration for the analyzer
@@ -230,7 +232,11 @@ impl Analyzer {
             }
         }
 
-        Self { rules, config, custom_rules_error }
+        Self {
+            rules,
+            config,
+            custom_rules_error,
+        }
     }
 
     /// Get the error that occurred when loading custom rules (if any)

@@ -893,10 +893,7 @@ mod tests {
             .find(|i| i["check_name"] == "S100")
             .expect("Should have S100 issue");
 
-        assert!(s100_issue["description"]
-            .as_str()
-            .unwrap()
-            .contains("S100"));
+        assert!(s100_issue["description"].as_str().unwrap().contains("S100"));
         assert_eq!(s100_issue["severity"], "minor");
         assert_eq!(s100_issue["location"]["lines"]["begin"], 10);
 
@@ -960,6 +957,9 @@ mod tests {
         );
 
         // No src directory
-        assert_eq!(Report::normalize_path("/home/user/Test.java"), "/home/user/Test.java");
+        assert_eq!(
+            Report::normalize_path("/home/user/Test.java"),
+            "/home/user/Test.java"
+        );
     }
 }

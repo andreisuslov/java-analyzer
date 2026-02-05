@@ -124,7 +124,11 @@ pub fn detect_maven(project_root: &Path) -> Option<ModuleStructure> {
     let (artifact_id, module_names) = parse_pom_xml(&content)?;
 
     let root_name = artifact_id.unwrap_or_else(|| "root".to_string());
-    let mut root = Module::new(root_name.clone(), project_root.to_path_buf(), BuildSystem::Maven);
+    let mut root = Module::new(
+        root_name.clone(),
+        project_root.to_path_buf(),
+        BuildSystem::Maven,
+    );
     let mut modules = HashMap::new();
 
     // Process child modules
@@ -141,11 +145,7 @@ pub fn detect_maven(project_root: &Path) -> Option<ModuleStructure> {
                 }
             } else {
                 // Simple module without submodules
-                let mut module = Module::new(
-                    module_name.clone(),
-                    module_path,
-                    BuildSystem::Maven,
-                );
+                let mut module = Module::new(module_name.clone(), module_path, BuildSystem::Maven);
                 module.parent = Some(root_name.clone());
                 root.children.push(module_name.clone());
                 modules.insert(module_name.clone(), module);
@@ -191,7 +191,10 @@ fn parse_pom_xml(content: &str) -> Option<(Option<String>, Vec<String>)> {
                     in_modules = true;
                 } else if local_name == "module" && in_modules {
                     in_module = true;
-                } else if local_name == "artifactId" && depth == project_depth + 1 && artifact_id.is_none() {
+                } else if local_name == "artifactId"
+                    && depth == project_depth + 1
+                    && artifact_id.is_none()
+                {
                     in_artifact_id = true;
                 }
             }
@@ -249,7 +252,11 @@ pub fn detect_gradle(project_root: &Path) -> Option<ModuleStructure> {
             .and_then(|n| n.to_str())
             .unwrap_or("root")
             .to_string();
-        let root = Module::new(name.clone(), project_root.to_path_buf(), BuildSystem::Gradle);
+        let root = Module::new(
+            name.clone(),
+            project_root.to_path_buf(),
+            BuildSystem::Gradle,
+        );
         let mut modules = HashMap::new();
         modules.insert(name.clone(), root.clone());
         return Some(ModuleStructure {
@@ -263,16 +270,19 @@ pub fn detect_gradle(project_root: &Path) -> Option<ModuleStructure> {
     let module_paths = parse_settings_gradle(&content);
 
     // Get root project name from settings file or directory name
-    let root_name = parse_gradle_root_name(&content)
-        .unwrap_or_else(|| {
-            project_root
-                .file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or("root")
-                .to_string()
-        });
+    let root_name = parse_gradle_root_name(&content).unwrap_or_else(|| {
+        project_root
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("root")
+            .to_string()
+    });
 
-    let mut root = Module::new(root_name.clone(), project_root.to_path_buf(), BuildSystem::Gradle);
+    let mut root = Module::new(
+        root_name.clone(),
+        project_root.to_path_buf(),
+        BuildSystem::Gradle,
+    );
     let mut modules = HashMap::new();
 
     for module_path in &module_paths {
@@ -283,11 +293,7 @@ pub fn detect_gradle(project_root: &Path) -> Option<ModuleStructure> {
         let full_path = project_root.join(&relative_path);
 
         if full_path.exists() {
-            let mut module = Module::new(
-                module_name.clone(),
-                full_path,
-                BuildSystem::Gradle,
-            );
+            let mut module = Module::new(module_name.clone(), full_path, BuildSystem::Gradle);
 
             // Set parent relationship
             if path_parts.len() > 1 {
@@ -687,9 +693,17 @@ include ':parent:child'
 "#;
         fs::write(root.join("pom.xml"), pom).unwrap();
         fs::create_dir(root.join("a")).unwrap();
-        fs::write(root.join("a/pom.xml"), "<project><artifactId>a</artifactId></project>").unwrap();
+        fs::write(
+            root.join("a/pom.xml"),
+            "<project><artifactId>a</artifactId></project>",
+        )
+        .unwrap();
         fs::create_dir(root.join("b")).unwrap();
-        fs::write(root.join("b/pom.xml"), "<project><artifactId>b</artifactId></project>").unwrap();
+        fs::write(
+            root.join("b/pom.xml"),
+            "<project><artifactId>b</artifactId></project>",
+        )
+        .unwrap();
 
         let structure = detect_maven(root).unwrap();
         let names = structure.module_names();
