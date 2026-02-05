@@ -102,6 +102,22 @@ struct Cli {
     /// Load quality gate from a JSON or TOML file
     #[arg(long, value_name = "FILE")]
     quality_gate_file: Option<PathBuf>,
+
+    /// Load custom rules from a YAML file
+    #[arg(long, value_name = "FILE")]
+    custom_rules: Option<PathBuf>,
+
+    /// Show module structure information for multi-module projects
+    #[arg(long)]
+    show_modules: bool,
+
+    /// Only analyze specific modules (comma-separated)
+    #[arg(long, value_delimiter = ',', value_name = "MODULES")]
+    modules: Option<Vec<String>>,
+
+    /// Exclude specific modules from analysis (comma-separated)
+    #[arg(long, value_delimiter = ',', value_name = "MODULES")]
+    exclude_modules: Option<Vec<String>>,
 }
 
 #[derive(Subcommand)]
@@ -226,6 +242,9 @@ enum OutputFormat {
     Sarif,
     Csv,
     Markdown,
+    /// GitLab Code Quality report format
+    #[value(alias = "codequality", alias = "gitlab-code-quality")]
+    Gitlab,
 }
 
 impl From<OutputFormat> for ReportFormat {
@@ -237,6 +256,7 @@ impl From<OutputFormat> for ReportFormat {
             OutputFormat::Sarif => ReportFormat::Sarif,
             OutputFormat::Csv => ReportFormat::Csv,
             OutputFormat::Markdown => ReportFormat::Markdown,
+            OutputFormat::Gitlab => ReportFormat::GitLabCodeQuality,
         }
     }
 }
@@ -355,8 +375,21 @@ fn run_analysis(cli: &Cli, path: &PathBuf) -> ExitCode {
         config.exclude_patterns.extend(exclude.clone());
     }
 
+    if let Some(ref custom_rules_path) = cli.custom_rules {
+        config.custom_rules_file = Some(custom_rules_path.to_string_lossy().to_string());
+    }
+
     // Create analyzer and run
     let analyzer = Analyzer::with_config(config);
+
+    // Check for custom rules loading errors
+    if let Some(error) = analyzer.custom_rules_error() {
+        eprintln!(
+            "{}: Failed to load custom rules: {}",
+            "Warning".yellow().bold(),
+            error
+        );
+    }
 
     if cli.verbose {
         eprintln!("{} Analyzing {}...", "Info:".blue().bold(), path.display());
@@ -367,7 +400,25 @@ fn run_analysis(cli: &Cli, path: &PathBuf) -> ExitCode {
         );
     }
 
-    let result = analyzer.analyze(path);
+    let mut result = analyzer.analyze(path);
+
+    // Filter issues by module if requested
+    if let Some(ref include_modules) = cli.modules {
+        result.issues.retain(|issue| {
+            issue.module.as_ref().map_or(false, |m| include_modules.contains(m))
+        });
+    }
+
+    if let Some(ref exclude_modules) = cli.exclude_modules {
+        result.issues.retain(|issue| {
+            issue.module.as_ref().map_or(true, |m| !exclude_modules.contains(m))
+        });
+    }
+
+    // Show module structure if requested
+    if cli.show_modules {
+        print_module_structure(&result, cli.no_color);
+    }
 
     // Generate report
     if cli.summary_only {
@@ -486,6 +537,48 @@ fn evaluate_quality_gate(cli: &Cli, result: &AnalysisResult) -> bool {
         gate_result.passed
     } else {
         true // No gate configured, pass by default
+    }
+}
+
+fn print_module_structure(result: &AnalysisResult, no_color: bool) {
+    if let Some(ref modules) = result.modules {
+        if no_color {
+            println!("Module Structure");
+            println!("================");
+        } else {
+            println!("{}", "Module Structure".bold().cyan());
+            println!("{}", "================".cyan());
+        }
+
+        println!("Build System: {}", modules.build_system.as_str());
+        println!("Root: {}", modules.root.name);
+        println!("Modules: {}", modules.modules.len());
+        println!();
+
+        // Print modules with issue counts
+        let issues_by_module = result.issues_by_module();
+        for (name, module) in &modules.modules {
+            let issue_count = issues_by_module.get(name).map_or(0, |v| v.len());
+            let parent_info = module.parent.as_ref().map_or(String::new(), |p| format!(" (parent: {})", p));
+
+            if no_color {
+                println!("  {} - {} issues{}", name, issue_count, parent_info);
+            } else {
+                let count_str = if issue_count > 0 {
+                    issue_count.to_string().yellow().to_string()
+                } else {
+                    "0".green().to_string()
+                };
+                println!("  {} - {} issues{}", name.cyan(), count_str, parent_info.dimmed());
+            }
+        }
+        println!();
+    } else if no_color {
+        println!("No multi-module structure detected.");
+        println!();
+    } else {
+        println!("{}", "No multi-module structure detected.".dimmed());
+        println!();
     }
 }
 

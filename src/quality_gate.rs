@@ -309,6 +309,7 @@ mod tests {
             owasp: None,
             cwe: None,
             debt_minutes: debt,
+            module: None,
         }
     }
 
@@ -317,6 +318,7 @@ mod tests {
             files_analyzed: 1,
             issues,
             duration_ms: 100,
+            modules: None,
         }
     }
 

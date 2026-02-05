@@ -5,6 +5,7 @@
 mod bugs;
 mod code_smells;
 mod complexity;
+pub mod custom;
 mod naming;
 mod security;
 
@@ -129,6 +130,9 @@ pub struct Issue {
     pub cwe: Option<u32>,
     /// Estimated remediation time in minutes
     pub debt_minutes: u32,
+    /// Module name (for multi-module projects)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub module: Option<String>,
 }
 
 /// Context for rule analysis
@@ -223,6 +227,7 @@ pub fn create_issue(
         owasp: rule.owasp(),
         cwe: rule.cwe(),
         debt_minutes: rule.debt_minutes(),
+        module: None,
     }
 }
 

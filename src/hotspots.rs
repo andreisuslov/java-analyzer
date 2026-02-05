@@ -287,6 +287,7 @@ mod tests {
             owasp: None,
             cwe: None,
             debt_minutes: 30,
+            module: None,
         }
     }
 
@@ -295,6 +296,7 @@ mod tests {
             files_analyzed: 1,
             issues,
             duration_ms: 100,
+            modules: None,
         }
     }
 
@@ -487,6 +489,7 @@ mod tests {
             owasp: None,
             cwe: None,
             debt_minutes: 5,
+            module: None,
         };
         assert!(!is_security_hotspot(&issue));
     }

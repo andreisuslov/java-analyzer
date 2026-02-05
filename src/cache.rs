@@ -278,6 +278,7 @@ mod tests {
             owasp: None,
             cwe: None,
             debt_minutes: 5,
+            module: None,
         }
     }
 
