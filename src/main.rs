@@ -118,6 +118,18 @@ struct Cli {
     /// Exclude specific modules from analysis (comma-separated)
     #[arg(long, value_delimiter = ',', value_name = "MODULES")]
     exclude_modules: Option<Vec<String>>,
+
+    /// Group output by compliance standard (owasp or cwe)
+    #[arg(long, value_enum)]
+    compliance: Option<ComplianceMode>,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, ValueEnum)]
+enum ComplianceMode {
+    /// Group issues by OWASP Top 10 (2021) categories
+    Owasp,
+    /// Group issues by CWE identifiers
+    Cwe,
 }
 
 #[derive(Subcommand)]
@@ -429,6 +441,28 @@ fn run_analysis(cli: &Cli, path: &PathBuf) -> ExitCode {
     // Generate report
     if cli.summary_only {
         print_summary(&result, cli.no_color);
+    } else if let Some(compliance) = cli.compliance {
+        // Generate compliance report
+        let report = generate_compliance_report(&result, compliance, cli.no_color);
+        if let Some(ref output_path) = cli.output {
+            match fs::write(output_path, &report) {
+                Ok(_) => {
+                    if cli.verbose {
+                        eprintln!(
+                            "{} Compliance report written to {}",
+                            "Success:".green().bold(),
+                            output_path.display()
+                        );
+                    }
+                }
+                Err(e) => {
+                    eprintln!("{}: Failed to write report: {}", "Error".red().bold(), e);
+                    return ExitCode::FAILURE;
+                }
+            }
+        } else {
+            print!("{}", report);
+        }
     } else {
         let report_config = ReportConfig {
             format: cli.format.into(),
@@ -1254,6 +1288,197 @@ fn show_coverage(report_path: &PathBuf, threshold: f64, format: &str) -> ExitCod
     } else {
         ExitCode::FAILURE
     }
+}
+
+fn generate_compliance_report(
+    result: &AnalysisResult,
+    mode: ComplianceMode,
+    no_color: bool,
+) -> String {
+    use java_analyzer::reports::{group_by_cwe, group_by_owasp};
+    use java_analyzer::rules::OwaspCategory;
+
+    let mut output = String::new();
+
+    match mode {
+        ComplianceMode::Owasp => {
+            // Header
+            if no_color {
+                output.push_str("OWASP Top 10 (2021) Compliance Report\n");
+                output.push_str("=====================================\n\n");
+            } else {
+                output.push_str(&format!(
+                    "{}\n{}\n\n",
+                    "OWASP Top 10 (2021) Compliance Report".bold().cyan(),
+                    "=====================================".cyan()
+                ));
+            }
+
+            // Summary
+            output.push_str(&format!("Total issues analyzed: {}\n", result.issues.len()));
+            let security_issues: Vec<_> = result
+                .issues
+                .iter()
+                .filter(|i| i.owasp.is_some())
+                .collect();
+            output.push_str(&format!(
+                "Issues with OWASP mapping: {}\n\n",
+                security_issues.len()
+            ));
+
+            // Group by OWASP
+            let grouped = group_by_owasp(&result.issues);
+
+            // Display categories with issues
+            let categories = [
+                (OwaspCategory::A01BrokenAccessControl, "A01:2021", "Broken Access Control"),
+                (OwaspCategory::A02CryptographicFailures, "A02:2021", "Cryptographic Failures"),
+                (OwaspCategory::A03Injection, "A03:2021", "Injection"),
+                (OwaspCategory::A04InsecureDesign, "A04:2021", "Insecure Design"),
+                (OwaspCategory::A05SecurityMisconfiguration, "A05:2021", "Security Misconfiguration"),
+                (OwaspCategory::A06VulnerableComponents, "A06:2021", "Vulnerable and Outdated Components"),
+                (OwaspCategory::A07AuthenticationFailures, "A07:2021", "Identification and Authentication Failures"),
+                (OwaspCategory::A08SoftwareDataIntegrityFailures, "A08:2021", "Software and Data Integrity Failures"),
+                (OwaspCategory::A09SecurityLoggingFailures, "A09:2021", "Security Logging and Monitoring Failures"),
+                (OwaspCategory::A10ServerSideRequestForgery, "A10:2021", "Server-Side Request Forgery"),
+            ];
+
+            for (cat, code, name) in categories {
+                let issues = grouped.get(&cat);
+                let count = issues.map_or(0, |v| v.len());
+
+                if count > 0 {
+                    if no_color {
+                        output.push_str(&format!("{} - {} ({} issues)\n", code, name, count));
+                    } else {
+                        output.push_str(&format!(
+                            "{} - {} ({} issues)\n",
+                            code.red().bold(),
+                            name,
+                            count.to_string().yellow()
+                        ));
+                    }
+
+                    if let Some(issues) = issues {
+                        for issue in issues.iter().take(5) {
+                            output.push_str(&format!(
+                                "  • {}:{} - {} ({})\n",
+                                issue.file, issue.line, issue.message, issue.rule_id
+                            ));
+                        }
+                        if issues.len() > 5 {
+                            output.push_str(&format!("  ... and {} more\n", issues.len() - 5));
+                        }
+                    }
+                    output.push('\n');
+                }
+            }
+
+            // Show categories with no issues
+            output.push_str("Categories with no issues:\n");
+            for (cat, code, name) in categories {
+                if grouped.get(&cat).map_or(true, |v| v.is_empty()) {
+                    if no_color {
+                        output.push_str(&format!("  ✓ {} - {}\n", code, name));
+                    } else {
+                        output.push_str(&format!("  {} {} - {}\n", "✓".green(), code.green(), name));
+                    }
+                }
+            }
+        }
+        ComplianceMode::Cwe => {
+            // Header
+            if no_color {
+                output.push_str("CWE Compliance Report\n");
+                output.push_str("=====================\n\n");
+            } else {
+                output.push_str(&format!(
+                    "{}\n{}\n\n",
+                    "CWE Compliance Report".bold().cyan(),
+                    "=====================".cyan()
+                ));
+            }
+
+            // Summary
+            output.push_str(&format!("Total issues analyzed: {}\n", result.issues.len()));
+            let cwe_issues: Vec<_> = result.issues.iter().filter(|i| i.cwe.is_some()).collect();
+            output.push_str(&format!("Issues with CWE mapping: {}\n\n", cwe_issues.len()));
+
+            // Group by CWE
+            let grouped = group_by_cwe(&result.issues);
+
+            // Common CWE names
+            let cwe_names: std::collections::HashMap<u32, &str> = [
+                (22, "Path Traversal"),
+                (78, "OS Command Injection"),
+                (79, "Cross-site Scripting (XSS)"),
+                (89, "SQL Injection"),
+                (90, "LDAP Injection"),
+                (117, "Log Injection"),
+                (200, "Information Exposure"),
+                (295, "Improper Certificate Validation"),
+                (311, "Missing Encryption"),
+                (319, "Cleartext Transmission"),
+                (326, "Inadequate Encryption Strength"),
+                (327, "Use of Broken Crypto Algorithm"),
+                (330, "Use of Insufficient Random Values"),
+                (352, "Cross-Site Request Forgery (CSRF)"),
+                (377, "Insecure Temporary File"),
+                (384, "Session Fixation"),
+                (434, "Unrestricted Upload"),
+                (470, "Unsafe Reflection"),
+                (502, "Deserialization of Untrusted Data"),
+                (521, "Weak Password Requirements"),
+                (601, "Open Redirect"),
+                (611, "XML External Entity (XXE)"),
+                (614, "Sensitive Cookie Without Secure Flag"),
+                (639, "Authorization Bypass Through User-Controlled Key"),
+                (798, "Hardcoded Credentials"),
+                (862, "Missing Authorization"),
+                (916, "Weak Password Hash"),
+                (918, "Server-Side Request Forgery (SSRF)"),
+                (1333, "Inefficient Regular Expression (ReDoS)"),
+            ]
+            .into_iter()
+            .collect();
+
+            // Sort by count (most issues first)
+            let mut sorted: Vec<_> = grouped.iter().collect();
+            sorted.sort_by(|a, b| b.1.len().cmp(&a.1.len()));
+
+            for (cwe_id, issues) in sorted {
+                let cwe_name = cwe_names.get(cwe_id).unwrap_or(&"Unknown");
+                if no_color {
+                    output.push_str(&format!(
+                        "CWE-{}: {} ({} issues)\n",
+                        cwe_id,
+                        cwe_name,
+                        issues.len()
+                    ));
+                } else {
+                    output.push_str(&format!(
+                        "{}: {} ({} issues)\n",
+                        format!("CWE-{}", cwe_id).red().bold(),
+                        cwe_name,
+                        issues.len().to_string().yellow()
+                    ));
+                }
+
+                for issue in issues.iter().take(3) {
+                    output.push_str(&format!(
+                        "  • {}:{} - {} ({})\n",
+                        issue.file, issue.line, issue.message, issue.rule_id
+                    ));
+                }
+                if issues.len() > 3 {
+                    output.push_str(&format!("  ... and {} more\n", issues.len() - 3));
+                }
+                output.push('\n');
+            }
+        }
+    }
+
+    output
 }
 
 #[cfg(test)]

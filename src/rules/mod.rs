@@ -59,7 +59,7 @@ pub enum RuleCategory {
 }
 
 /// OWASP Top 10 (2021) categories
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum OwaspCategory {
     A01BrokenAccessControl,
     A02CryptographicFailures,

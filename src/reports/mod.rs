@@ -678,12 +678,36 @@ impl Report {
     }
 }
 
+use crate::rules::OwaspCategory;
+use std::collections::BTreeMap;
+
+/// Group issues by OWASP Top 10 category
+pub fn group_by_owasp(issues: &[Issue]) -> BTreeMap<OwaspCategory, Vec<&Issue>> {
+    let mut grouped: BTreeMap<OwaspCategory, Vec<&Issue>> = BTreeMap::new();
+    for issue in issues {
+        if let Some(owasp) = issue.owasp {
+            grouped.entry(owasp).or_default().push(issue);
+        }
+    }
+    grouped
+}
+
+/// Group issues by CWE identifier
+pub fn group_by_cwe(issues: &[Issue]) -> BTreeMap<u32, Vec<&Issue>> {
+    let mut grouped: BTreeMap<u32, Vec<&Issue>> = BTreeMap::new();
+    for issue in issues {
+        if let Some(cwe) = issue.cwe {
+            grouped.entry(cwe).or_default().push(issue);
+        }
+    }
+    grouped
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     fn create_test_result() -> AnalysisResult {
-        use crate::rules::OwaspCategory;
 
         AnalysisResult {
             files_analyzed: 5,
@@ -961,5 +985,157 @@ mod tests {
             Report::normalize_path("/home/user/Test.java"),
             "/home/user/Test.java"
         );
+    }
+
+    // ===== Compliance Report Tests (OWASP/CWE Grouping) =====
+
+    fn create_issue_with_owasp(
+        rule_id: &str,
+        owasp: OwaspCategory,
+        cwe: Option<u32>,
+    ) -> Issue {
+        Issue {
+            rule_id: rule_id.to_string(),
+            title: format!("Rule {}", rule_id),
+            severity: Severity::Critical,
+            category: RuleCategory::Security,
+            file: "Test.java".to_string(),
+            line: 1,
+            column: 1,
+            end_line: None,
+            end_column: None,
+            message: "Test message".to_string(),
+            code_snippet: None,
+            owasp: Some(owasp),
+            cwe,
+            debt_minutes: 10,
+            module: None,
+        }
+    }
+
+    #[test]
+    fn test_group_issues_by_owasp() {
+        let issues = vec![
+            create_issue_with_owasp("S3649", OwaspCategory::A03Injection, Some(89)),
+            create_issue_with_owasp("S2068", OwaspCategory::A07AuthenticationFailures, Some(798)),
+            create_issue_with_owasp("S2076", OwaspCategory::A03Injection, Some(78)),
+            create_issue_with_owasp("S4423", OwaspCategory::A02CryptographicFailures, Some(326)),
+        ];
+        let grouped = group_by_owasp(&issues);
+
+        assert_eq!(
+            grouped.get(&OwaspCategory::A03Injection).unwrap().len(),
+            2,
+            "A03 Injection should have 2 issues"
+        );
+        assert_eq!(
+            grouped.get(&OwaspCategory::A07AuthenticationFailures).unwrap().len(),
+            1,
+            "A07 Auth Failures should have 1 issue"
+        );
+        assert_eq!(
+            grouped.get(&OwaspCategory::A02CryptographicFailures).unwrap().len(),
+            1,
+            "A02 Crypto Failures should have 1 issue"
+        );
+    }
+
+    #[test]
+    fn test_group_issues_by_cwe() {
+        let issues = vec![
+            create_issue_with_owasp("S3649", OwaspCategory::A03Injection, Some(89)),
+            create_issue_with_owasp("S5247", OwaspCategory::A03Injection, Some(89)),
+            create_issue_with_owasp("S2076", OwaspCategory::A03Injection, Some(78)),
+            create_issue_with_owasp("S2068", OwaspCategory::A07AuthenticationFailures, Some(798)),
+        ];
+        let grouped = group_by_cwe(&issues);
+
+        assert_eq!(
+            grouped.get(&89).unwrap().len(),
+            2,
+            "CWE-89 (SQL Injection) should have 2 issues"
+        );
+        assert_eq!(
+            grouped.get(&78).unwrap().len(),
+            1,
+            "CWE-78 (OS Command Injection) should have 1 issue"
+        );
+        assert_eq!(
+            grouped.get(&798).unwrap().len(),
+            1,
+            "CWE-798 (Hardcoded Credentials) should have 1 issue"
+        );
+    }
+
+    #[test]
+    fn test_group_by_owasp_ignores_none() {
+        let issues = vec![
+            create_issue_with_owasp("S3649", OwaspCategory::A03Injection, Some(89)),
+            Issue {
+                rule_id: "S100".to_string(),
+                title: "Naming rule".to_string(),
+                severity: Severity::Minor,
+                category: RuleCategory::Naming,
+                file: "Test.java".to_string(),
+                line: 1,
+                column: 1,
+                end_line: None,
+                end_column: None,
+                message: "Rename method".to_string(),
+                code_snippet: None,
+                owasp: None, // No OWASP mapping
+                cwe: None,
+                debt_minutes: 5,
+                module: None,
+            },
+        ];
+        let grouped = group_by_owasp(&issues);
+
+        // Should only have 1 entry (the one with OWASP mapping)
+        assert_eq!(grouped.len(), 1);
+        assert_eq!(grouped.get(&OwaspCategory::A03Injection).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn test_group_by_cwe_ignores_none() {
+        let issues = vec![
+            create_issue_with_owasp("S3649", OwaspCategory::A03Injection, Some(89)),
+            Issue {
+                rule_id: "S100".to_string(),
+                title: "Naming rule".to_string(),
+                severity: Severity::Minor,
+                category: RuleCategory::Naming,
+                file: "Test.java".to_string(),
+                line: 1,
+                column: 1,
+                end_line: None,
+                end_column: None,
+                message: "Rename method".to_string(),
+                code_snippet: None,
+                owasp: None,
+                cwe: None, // No CWE mapping
+                debt_minutes: 5,
+                module: None,
+            },
+        ];
+        let grouped = group_by_cwe(&issues);
+
+        // Should only have 1 entry (the one with CWE mapping)
+        assert_eq!(grouped.len(), 1);
+        assert_eq!(grouped.get(&89).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn test_group_by_owasp_empty() {
+        let issues: Vec<Issue> = vec![];
+        let grouped = group_by_owasp(&issues);
+        assert!(grouped.is_empty());
+    }
+
+    #[test]
+    fn test_group_by_cwe_empty() {
+        let issues: Vec<Issue> = vec![];
+        let grouped = group_by_cwe(&issues);
+        assert!(grouped.is_empty());
     }
 }
