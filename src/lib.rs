@@ -32,6 +32,7 @@ pub mod coverage;
 pub mod debt;
 pub mod duplication;
 pub mod hotspots;
+pub mod module;
 pub mod parser;
 pub mod quality_gate;
 pub mod reports;
@@ -57,8 +58,10 @@ pub use duplication::{
 pub use hotspots::{
     HotspotCategory, HotspotPriority, HotspotResult, HotspotStatus, SecurityHotspot,
 };
+pub use module::{BuildSystem, Module, ModuleStructure, detect_gradle, detect_maven};
 pub use quality_gate::{ConditionResult, QualityCondition, QualityGate, QualityGateResult};
 pub use reports::{Report, ReportFormat};
+pub use rules::custom::{load_custom_rules, CustomRule, CustomRuleConfig, CustomRuleError, CustomRulesConfig};
 pub use rules::{AnalysisContext, Issue, OwaspCategory, Rule, RuleCategory, Severity};
 
 /// Configuration for the analyzer
@@ -83,6 +86,8 @@ pub struct AnalyzerConfig {
     pub fail_on_severity: Option<Severity>,
     /// Output format
     pub output_format: Option<String>,
+    /// Path to custom rules YAML file
+    pub custom_rules_file: Option<String>,
 }
 
 impl Default for AnalyzerConfig {
@@ -102,6 +107,7 @@ impl Default for AnalyzerConfig {
             max_nesting: Some(4),
             fail_on_severity: None,
             output_format: None,
+            custom_rules_file: None,
         }
     }
 }
@@ -181,6 +187,9 @@ impl AnalyzerConfig {
         if other.output_format.is_some() {
             self.output_format = other.output_format;
         }
+        if other.custom_rules_file.is_some() {
+            self.custom_rules_file = other.custom_rules_file;
+        }
     }
 }
 
@@ -195,6 +204,7 @@ pub enum ConfigError {
 pub struct Analyzer {
     rules: Vec<Box<dyn Rule>>,
     config: AnalyzerConfig,
+    custom_rules_error: Option<String>,
 }
 
 impl Analyzer {
@@ -205,8 +215,27 @@ impl Analyzer {
 
     /// Create a new analyzer with custom configuration
     pub fn with_config(config: AnalyzerConfig) -> Self {
-        let rules = rules::create_all_rules();
-        Self { rules, config }
+        let mut rules = rules::create_all_rules();
+        let mut custom_rules_error = None;
+
+        // Load custom rules if configured
+        if let Some(ref custom_rules_path) = config.custom_rules_file {
+            match rules::custom::load_custom_rules(Path::new(custom_rules_path)) {
+                Ok(custom_rules) => {
+                    rules.extend(custom_rules);
+                }
+                Err(e) => {
+                    custom_rules_error = Some(format!("{}", e));
+                }
+            }
+        }
+
+        Self { rules, config, custom_rules_error }
+    }
+
+    /// Get the error that occurred when loading custom rules (if any)
+    pub fn custom_rules_error(&self) -> Option<&str> {
+        self.custom_rules_error.as_deref()
     }
 
     /// Get all available rules
@@ -308,10 +337,30 @@ impl Analyzer {
 
         let duration = start.elapsed();
 
+        // Detect module structure
+        let module_structure = ModuleStructure::detect(path);
+
+        // Assign modules to issues if module structure was detected
+        let all_issues = if let Some(ref modules) = module_structure {
+            all_issues
+                .into_iter()
+                .map(|mut issue| {
+                    let file_path = Path::new(&issue.file);
+                    if let Some(module_name) = modules.module_name_for_file(file_path) {
+                        issue.module = Some(module_name.to_string());
+                    }
+                    issue
+                })
+                .collect()
+        } else {
+            all_issues
+        };
+
         AnalysisResult {
             files_analyzed: files_count.load(Ordering::Relaxed),
             issues: all_issues,
             duration_ms: duration.as_millis() as u64,
+            modules: module_structure,
         }
     }
 
@@ -326,6 +375,7 @@ impl Analyzer {
                 files_analyzed: 1,
                 issues,
                 duration_ms: duration.as_millis() as u64,
+                modules: None,
             }
         } else {
             self.analyze_directory(path)
@@ -345,6 +395,9 @@ pub struct AnalysisResult {
     pub files_analyzed: usize,
     pub issues: Vec<Issue>,
     pub duration_ms: u64,
+    /// Module structure (for multi-module projects)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub modules: Option<ModuleStructure>,
 }
 
 impl AnalysisResult {
@@ -382,6 +435,21 @@ impl AnalysisResult {
             *counts.entry(issue.severity).or_default() += 1;
         }
         counts
+    }
+
+    /// Get issues grouped by module
+    pub fn issues_by_module(&self) -> HashMap<String, Vec<&Issue>> {
+        let mut map: HashMap<String, Vec<&Issue>> = HashMap::new();
+        for issue in &self.issues {
+            let module_name = issue.module.clone().unwrap_or_else(|| "(root)".to_string());
+            map.entry(module_name).or_default().push(issue);
+        }
+        map
+    }
+
+    /// Check if this is a multi-module project analysis
+    pub fn is_multi_module(&self) -> bool {
+        self.modules.as_ref().map_or(false, |m| m.is_multi_module())
     }
 }
 

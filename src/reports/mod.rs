@@ -1,12 +1,14 @@
 //! Report generation module
 //!
-//! Generates analysis reports in various formats (text, JSON, HTML, SARIF).
+//! Generates analysis reports in various formats (text, JSON, HTML, SARIF, GitLab Code Quality).
 
 #[cfg(test)]
 use crate::rules::RuleCategory;
 use crate::{AnalysisResult, Issue, Severity};
 use serde::{Deserialize, Serialize};
+use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
 use std::io::Write;
 
 /// Available report formats
@@ -18,6 +20,7 @@ pub enum ReportFormat {
     Sarif,
     Csv,
     Markdown,
+    GitLabCodeQuality,
 }
 
 impl ReportFormat {
@@ -29,6 +32,9 @@ impl ReportFormat {
             "sarif" => Some(ReportFormat::Sarif),
             "csv" => Some(ReportFormat::Csv),
             "md" | "markdown" => Some(ReportFormat::Markdown),
+            "gitlab" | "codequality" | "gitlab-code-quality" => {
+                Some(ReportFormat::GitLabCodeQuality)
+            }
             _ => None,
         }
     }
@@ -99,6 +105,7 @@ impl Report {
             ReportFormat::Sarif => self.generate_sarif(result),
             ReportFormat::Csv => self.generate_csv(result),
             ReportFormat::Markdown => self.generate_markdown(result),
+            ReportFormat::GitLabCodeQuality => self.generate_gitlab_code_quality(result),
         }
     }
 
@@ -580,6 +587,88 @@ impl Report {
         md
     }
 
+    /// Generate GitLab Code Quality report format
+    /// See: https://docs.gitlab.com/ee/ci/testing/code_quality.html#implement-a-custom-tool
+    fn generate_gitlab_code_quality(&self, result: &AnalysisResult) -> String {
+        #[derive(Serialize)]
+        struct GitLabIssue {
+            description: String,
+            check_name: String,
+            fingerprint: String,
+            severity: String,
+            location: GitLabLocation,
+        }
+
+        #[derive(Serialize)]
+        struct GitLabLocation {
+            path: String,
+            lines: GitLabLines,
+        }
+
+        #[derive(Serialize)]
+        struct GitLabLines {
+            begin: usize,
+        }
+
+        let issues: Vec<GitLabIssue> = result
+            .issues
+            .iter()
+            .map(|issue| {
+                let severity = Self::severity_to_gitlab(issue.severity);
+                let fingerprint = Self::generate_fingerprint(issue);
+                let path = Self::normalize_path(&issue.file);
+
+                GitLabIssue {
+                    description: format!("{}: {}", issue.rule_id, issue.message),
+                    check_name: issue.rule_id.clone(),
+                    fingerprint,
+                    severity,
+                    location: GitLabLocation {
+                        path,
+                        lines: GitLabLines { begin: issue.line },
+                    },
+                }
+            })
+            .collect();
+
+        serde_json::to_string_pretty(&issues).unwrap_or_else(|_| "[]".to_string())
+    }
+
+    /// Map severity to GitLab Code Quality severity levels
+    fn severity_to_gitlab(severity: Severity) -> String {
+        match severity {
+            Severity::Blocker => "blocker".to_string(),
+            Severity::Critical => "critical".to_string(),
+            Severity::Major => "major".to_string(),
+            Severity::Minor => "minor".to_string(),
+            Severity::Info => "info".to_string(),
+        }
+    }
+
+    /// Generate a unique fingerprint for an issue using hash of key attributes
+    fn generate_fingerprint(issue: &Issue) -> String {
+        let mut hasher = DefaultHasher::new();
+        issue.rule_id.hash(&mut hasher);
+        issue.file.hash(&mut hasher);
+        issue.line.hash(&mut hasher);
+        issue.message.hash(&mut hasher);
+        format!("{:016x}", hasher.finish())
+    }
+
+    /// Normalize file path to relative path (strip common absolute prefixes)
+    fn normalize_path(path: &str) -> String {
+        // If path starts with common absolute prefixes, try to make it relative
+        if let Some(stripped) = path.strip_prefix('/') {
+            // Check for common project root indicators
+            if let Some(pos) = stripped.find("/src/") {
+                return stripped[pos + 1..].to_string();
+            }
+            // Return as-is if we can't find a good relative path
+            return path.to_string();
+        }
+        path.to_string()
+    }
+
     fn html_escape(s: &str) -> String {
         s.replace('&', "&amp;")
             .replace('<', "&lt;")
@@ -615,6 +704,7 @@ mod tests {
                     owasp: None,
                     cwe: None,
                     debt_minutes: 5,
+                    module: None,
                 },
                 Issue {
                     rule_id: "S2068".to_string(),
@@ -631,8 +721,10 @@ mod tests {
                     owasp: Some(OwaspCategory::A07AuthenticationFailures),
                     cwe: Some(798),
                     debt_minutes: 30,
+                    module: None,
                 },
             ],
+            modules: None,
         }
     }
 
@@ -697,5 +789,177 @@ mod tests {
         let json: serde_json::Value = serde_json::from_str(&report).unwrap();
         assert_eq!(json["version"], "2.1.0");
         assert!(json["runs"][0]["tool"]["driver"]["name"] == "java-analyzer");
+    }
+
+    // ===== GitLab Code Quality Tests =====
+
+    #[test]
+    fn test_gitlab_code_quality_report_structure() {
+        let result = create_test_result();
+        let report = Report::new()
+            .with_format(ReportFormat::GitLabCodeQuality)
+            .generate(&result);
+
+        // Should be a valid JSON array
+        let json: Vec<serde_json::Value> = serde_json::from_str(&report).unwrap();
+        assert_eq!(json.len(), 2); // Two issues in test result
+
+        // Check required fields exist
+        let first = &json[0];
+        assert!(first.get("description").is_some());
+        assert!(first.get("check_name").is_some());
+        assert!(first.get("fingerprint").is_some());
+        assert!(first.get("severity").is_some());
+        assert!(first.get("location").is_some());
+        assert!(first["location"].get("path").is_some());
+        assert!(first["location"]["lines"].get("begin").is_some());
+    }
+
+    #[test]
+    fn test_gitlab_severity_mapping() {
+        assert_eq!(Report::severity_to_gitlab(Severity::Blocker), "blocker");
+        assert_eq!(Report::severity_to_gitlab(Severity::Critical), "critical");
+        assert_eq!(Report::severity_to_gitlab(Severity::Major), "major");
+        assert_eq!(Report::severity_to_gitlab(Severity::Minor), "minor");
+        assert_eq!(Report::severity_to_gitlab(Severity::Info), "info");
+    }
+
+    #[test]
+    fn test_gitlab_fingerprint_generation() {
+        let issue1 = Issue {
+            rule_id: "S100".to_string(),
+            title: "Test".to_string(),
+            severity: Severity::Minor,
+            category: RuleCategory::Naming,
+            file: "Test.java".to_string(),
+            line: 10,
+            column: 5,
+            end_line: None,
+            end_column: None,
+            message: "Test message".to_string(),
+            code_snippet: None,
+            owasp: None,
+            cwe: None,
+            debt_minutes: 5,
+            module: None,
+        };
+
+        let issue2 = Issue {
+            rule_id: "S100".to_string(),
+            title: "Test".to_string(),
+            severity: Severity::Minor,
+            category: RuleCategory::Naming,
+            file: "Test.java".to_string(),
+            line: 20, // Different line
+            column: 5,
+            end_line: None,
+            end_column: None,
+            message: "Test message".to_string(),
+            code_snippet: None,
+            owasp: None,
+            cwe: None,
+            debt_minutes: 5,
+            module: None,
+        };
+
+        let fp1 = Report::generate_fingerprint(&issue1);
+        let fp2 = Report::generate_fingerprint(&issue2);
+
+        // Fingerprints should be 16 hex characters
+        assert_eq!(fp1.len(), 16);
+        assert_eq!(fp2.len(), 16);
+        assert!(fp1.chars().all(|c| c.is_ascii_hexdigit()));
+
+        // Same issue should give same fingerprint
+        let fp1_again = Report::generate_fingerprint(&issue1);
+        assert_eq!(fp1, fp1_again);
+
+        // Different issues should give different fingerprints
+        assert_ne!(fp1, fp2);
+    }
+
+    #[test]
+    fn test_gitlab_code_quality_content() {
+        let result = create_test_result();
+        let report = Report::new()
+            .with_format(ReportFormat::GitLabCodeQuality)
+            .generate(&result);
+
+        let json: Vec<serde_json::Value> = serde_json::from_str(&report).unwrap();
+
+        // Find the S100 issue
+        let s100_issue = json
+            .iter()
+            .find(|i| i["check_name"] == "S100")
+            .expect("Should have S100 issue");
+
+        assert!(s100_issue["description"]
+            .as_str()
+            .unwrap()
+            .contains("S100"));
+        assert_eq!(s100_issue["severity"], "minor");
+        assert_eq!(s100_issue["location"]["lines"]["begin"], 10);
+
+        // Find the S2068 issue (blocker severity)
+        let s2068_issue = json
+            .iter()
+            .find(|i| i["check_name"] == "S2068")
+            .expect("Should have S2068 issue");
+
+        assert_eq!(s2068_issue["severity"], "blocker");
+    }
+
+    #[test]
+    fn test_gitlab_format_aliases() {
+        assert_eq!(
+            ReportFormat::from_str("gitlab"),
+            Some(ReportFormat::GitLabCodeQuality)
+        );
+        assert_eq!(
+            ReportFormat::from_str("codequality"),
+            Some(ReportFormat::GitLabCodeQuality)
+        );
+        assert_eq!(
+            ReportFormat::from_str("gitlab-code-quality"),
+            Some(ReportFormat::GitLabCodeQuality)
+        );
+        assert_eq!(
+            ReportFormat::from_str("GITLAB"),
+            Some(ReportFormat::GitLabCodeQuality)
+        );
+    }
+
+    #[test]
+    fn test_gitlab_empty_result() {
+        let result = AnalysisResult {
+            files_analyzed: 0,
+            issues: vec![],
+            duration_ms: 0,
+            modules: None,
+        };
+        let report = Report::new()
+            .with_format(ReportFormat::GitLabCodeQuality)
+            .generate(&result);
+
+        let json: Vec<serde_json::Value> = serde_json::from_str(&report).unwrap();
+        assert!(json.is_empty());
+    }
+
+    #[test]
+    fn test_gitlab_path_normalization() {
+        // Absolute path with src
+        assert_eq!(
+            Report::normalize_path("/home/user/project/src/main/java/Test.java"),
+            "src/main/java/Test.java"
+        );
+
+        // Already relative
+        assert_eq!(
+            Report::normalize_path("src/main/java/Test.java"),
+            "src/main/java/Test.java"
+        );
+
+        // No src directory
+        assert_eq!(Report::normalize_path("/home/user/Test.java"), "/home/user/Test.java");
     }
 }

@@ -21,6 +21,8 @@ pub struct DebtSummary {
     pub by_file: Vec<(String, u32)>,
     /// Debt by rule (top rules)
     pub by_rule: Vec<(String, u32)>,
+    /// Debt by module (for multi-module projects)
+    pub by_module: Vec<(String, u32)>,
     /// Human-readable total debt
     pub formatted_total: String,
 }
@@ -33,6 +35,7 @@ impl DebtSummary {
         let mut by_category: HashMap<String, u32> = HashMap::new();
         let mut by_file: HashMap<String, u32> = HashMap::new();
         let mut by_rule: HashMap<String, u32> = HashMap::new();
+        let mut by_module_map: HashMap<String, u32> = HashMap::new();
 
         for issue in &result.issues {
             let debt = issue.debt_minutes;
@@ -46,6 +49,10 @@ impl DebtSummary {
                 .or_default() += debt;
             *by_file.entry(issue.file.clone()).or_default() += debt;
             *by_rule.entry(issue.rule_id.clone()).or_default() += debt;
+
+            // Track debt by module
+            let module_name = issue.module.clone().unwrap_or_else(|| "(root)".to_string());
+            *by_module_map.entry(module_name).or_default() += debt;
         }
 
         // Sort and take top 10 files
@@ -58,6 +65,10 @@ impl DebtSummary {
         rule_vec.sort_by(|a, b| b.1.cmp(&a.1));
         rule_vec.truncate(10);
 
+        // Sort modules by debt
+        let mut module_vec: Vec<_> = by_module_map.into_iter().collect();
+        module_vec.sort_by(|a, b| b.1.cmp(&a.1));
+
         let formatted_total = format_debt(total_minutes);
 
         Self {
@@ -66,6 +77,7 @@ impl DebtSummary {
             by_category,
             by_file: file_vec,
             by_rule: rule_vec,
+            by_module: module_vec,
             formatted_total,
         }
     }
@@ -243,6 +255,7 @@ mod tests {
             owasp: None,
             cwe: None,
             debt_minutes: debt,
+            module: None,
         }
     }
 
@@ -251,6 +264,7 @@ mod tests {
             files_analyzed: 1,
             issues,
             duration_ms: 100,
+            modules: None,
         }
     }
 
