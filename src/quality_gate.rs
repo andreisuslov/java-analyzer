@@ -291,7 +291,7 @@ impl QualityGate {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::rules::{Issue, OwaspCategory, RuleCategory};
+    use crate::rules::{Issue, RuleCategory};
 
     fn create_test_issue(severity: Severity, debt: u32) -> Issue {
         Issue {
