@@ -1,0 +1,44 @@
+[package]
+name = "java_analyzer"
+version = "1.0.0"
+edition = "2021"
+description = "Fast Java static code analyzer based on SonarSource rules"
+authors = ["Java Analyzer Team"]
+license = "MIT"
+
+[[bin]]
+name = "java-analyzer"
+path = "src/main.rs"
+
+[lib]
+name = "java_analyzer"
+path = "src/lib.rs"
+
+[dependencies]
+tree-sitter = "0.20"
+tree-sitter-java = "0.20"
+rayon = "1.8"
+walkdir = "2.4"
+regex = "1.10"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+clap = { version = "4.4", features = ["derive"] }
+colored = "2.1"
+once_cell = "1.19"
+chrono = "0.4"
+toml = "0.8"
+thiserror = "1.0"
+
+[dev-dependencies]
+tempfile = "3.10"
+pretty_assertions = "1.4"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+
+[profile.dev]
+opt-level = 0
+debug = true
