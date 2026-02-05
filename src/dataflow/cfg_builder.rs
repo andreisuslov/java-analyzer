@@ -195,8 +195,9 @@ impl<'a> CfgBuilder<'a> {
         if let Some(consequence) = node.child_by_field_name("consequence") {
             self.process_statement(consequence);
         }
-        // Connect to merge
-        if let Some(block) = self.cfg.get_block_mut(self.current_block) {
+        // Connect to merge only if the then-block itself hasn't been terminated
+        // (current_block may differ if return/throw created new blocks)
+        if let Some(block) = self.cfg.get_block_mut(then_block) {
             if matches!(block.terminator, Terminator::Unreachable) {
                 block.terminator = Terminator::Goto(merge_block);
             }
@@ -206,7 +207,7 @@ impl<'a> CfgBuilder<'a> {
         if let Some(alternative) = node.child_by_field_name("alternative") {
             self.current_block = else_block;
             self.process_statement(alternative);
-            if let Some(block) = self.cfg.get_block_mut(self.current_block) {
+            if let Some(block) = self.cfg.get_block_mut(else_block) {
                 if matches!(block.terminator, Terminator::Unreachable) {
                     block.terminator = Terminator::Goto(merge_block);
                 }

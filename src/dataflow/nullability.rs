@@ -169,9 +169,11 @@ pub fn analyze_nullability(cfg: &ControlFlowGraph) -> NullabilityAnalysisResult 
             state
         };
 
-        // Check if state changed
+        // Check if state changed or block hasn't been processed yet
         let old_entry = entry_states.get(&block_id);
-        if old_entry.map(|s| s != &entry_state).unwrap_or(true) {
+        let old_exit = exit_states.get(&block_id);
+        // Process if: no exit state yet (not processed), or entry state changed
+        if old_exit.is_none() || old_entry.map(|s| s != &entry_state).unwrap_or(true) {
             entry_states.insert(block_id, entry_state.clone());
 
             // Process block statements
@@ -359,5 +361,84 @@ mod tests {
             else_expr: Box::new(Expression::Null),
         };
         assert_eq!(evaluate_expression(&expr, &state), NullState::MaybeNull);
+    }
+
+    // Integration test with CFG builder
+    #[test]
+    fn test_integration_explicit_null_dereference() {
+        use super::super::CfgBuilder;
+
+        let source = r#"
+            class Test {
+                void foo() {
+                    String s = null;
+                    s.length();
+                }
+            }
+        "#;
+
+        let mut parser = tree_sitter::Parser::new();
+        parser.set_language(tree_sitter_java::language()).unwrap();
+        let tree = parser.parse(source, None).unwrap();
+
+        // Find method
+        fn find_method(node: tree_sitter::Node) -> Option<tree_sitter::Node> {
+            if node.kind() == "method_declaration" {
+                return Some(node);
+            }
+            let mut cursor = node.walk();
+            for child in node.children(&mut cursor) {
+                if let Some(method) = find_method(child) {
+                    return Some(method);
+                }
+            }
+            None
+        }
+
+        let method = find_method(tree.root_node()).expect("Should find method");
+        let cfg = CfgBuilder::new(source).build_method(method);
+        let result = analyze_nullability(&cfg);
+
+        assert!(!result.dereferences.is_empty(), "Should detect null dereference");
+        assert_eq!(result.dereferences[0].state, NullState::Null);
+    }
+
+    #[test]
+    fn test_integration_early_return_pattern() {
+        use super::super::CfgBuilder;
+
+        let source = r#"
+            class Test {
+                void foo(String s) {
+                    if (s == null) {
+                        return;
+                    }
+                    s.length();
+                }
+            }
+        "#;
+
+        let mut parser = tree_sitter::Parser::new();
+        parser.set_language(tree_sitter_java::language()).unwrap();
+        let tree = parser.parse(source, None).unwrap();
+
+        fn find_method(node: tree_sitter::Node) -> Option<tree_sitter::Node> {
+            if node.kind() == "method_declaration" {
+                return Some(node);
+            }
+            let mut cursor = node.walk();
+            for child in node.children(&mut cursor) {
+                if let Some(method) = find_method(child) {
+                    return Some(method);
+                }
+            }
+            None
+        }
+
+        let method = find_method(tree.root_node()).expect("Should find method");
+        let cfg = CfgBuilder::new(source).build_method(method);
+        let result = analyze_nullability(&cfg);
+
+        assert!(result.dereferences.is_empty(), "Should not warn after early return on null");
     }
 }
