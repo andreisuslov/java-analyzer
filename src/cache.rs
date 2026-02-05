@@ -279,6 +279,7 @@ mod tests {
             cwe: None,
             debt_minutes: 5,
             module: None,
+            fix: None,
         }
     }
 

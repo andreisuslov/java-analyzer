@@ -237,6 +237,7 @@ impl Rule for CustomRule {
                     cwe: None,
                     debt_minutes: self.debt,
                     module: None,
+                    fix: None,
                 });
             }
         }

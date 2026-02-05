@@ -17,6 +17,7 @@ use colored::*;
 use java_analyzer::coverage::load_coverage;
 use java_analyzer::hotspots::HotspotResult;
 use java_analyzer::reports::{Report, ReportConfig, ReportFormat};
+use java_analyzer::watch::{FileWatcher, WatchConfig};
 use java_analyzer::{compare_with_baseline, Baseline};
 use java_analyzer::{AnalysisResult, Analyzer, AnalyzerConfig, QualityGate, Severity};
 use java_analyzer::{DebtRating, DebtSummary};
@@ -122,6 +123,22 @@ struct Cli {
     /// Group output by compliance standard (owasp or cwe)
     #[arg(long, value_enum)]
     compliance: Option<ComplianceMode>,
+
+    /// Enable incremental analysis cache
+    #[arg(long)]
+    cache: bool,
+
+    /// Disable cache (use fresh analysis)
+    #[arg(long, conflicts_with = "cache")]
+    no_cache: bool,
+
+    /// Custom cache file path
+    #[arg(long, value_name = "FILE")]
+    cache_file: Option<PathBuf>,
+
+    /// Show cache statistics in output
+    #[arg(long)]
+    show_cache_stats: bool,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -244,6 +261,28 @@ enum Commands {
         #[arg(short, long, default_value = "text")]
         format: String,
     },
+
+    /// Watch mode: continuously monitor and analyze files
+    Watch {
+        /// Path to watch
+        path: PathBuf,
+
+        /// Debounce delay in milliseconds
+        #[arg(long, default_value = "300")]
+        debounce: u64,
+
+        /// Skip initial analysis
+        #[arg(long)]
+        no_initial: bool,
+
+        /// Minimum severity level to report
+        #[arg(short = 's', long, value_enum, default_value = "info")]
+        min_severity: SeverityLevel,
+
+        /// Enable caching for faster re-analysis
+        #[arg(long)]
+        cache: bool,
+    },
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -346,6 +385,13 @@ fn main() -> ExitCode {
             threshold,
             format,
         }) => show_coverage(&report, threshold, &format),
+        Some(Commands::Watch {
+            path,
+            debounce,
+            no_initial,
+            min_severity,
+            cache,
+        }) => run_watch_mode(&path, debounce, !no_initial, min_severity.into(), cache),
         Some(Commands::Analyze { ref path }) => run_analysis(&cli, path),
         None => match &cli.path {
             Some(p) => run_analysis(&cli, p),
@@ -391,8 +437,23 @@ fn run_analysis(cli: &Cli, path: &PathBuf) -> ExitCode {
         config.custom_rules_file = Some(custom_rules_path.to_string_lossy().to_string());
     }
 
-    // Create analyzer and run
-    let analyzer = Analyzer::with_config(config);
+    // Create analyzer with optional caching
+    let analyzer = if cli.cache && !cli.no_cache {
+        let cache_path = cli
+            .cache_file
+            .clone()
+            .unwrap_or_else(java_analyzer::cache::default_cache_path);
+        if cli.verbose {
+            eprintln!(
+                "{} Using cache: {}",
+                "Info:".blue().bold(),
+                cache_path.display()
+            );
+        }
+        Analyzer::with_cache(config, cache_path)
+    } else {
+        Analyzer::with_config(config)
+    };
 
     // Check for custom rules loading errors
     if let Some(error) = analyzer.custom_rules_error() {
@@ -413,6 +474,34 @@ fn run_analysis(cli: &Cli, path: &PathBuf) -> ExitCode {
     }
 
     let mut result = analyzer.analyze(path);
+
+    // Save cache if enabled
+    if cli.cache && !cli.no_cache {
+        if let Err(e) = analyzer.save_cache() {
+            if cli.verbose {
+                eprintln!(
+                    "{}: Failed to save cache: {}",
+                    "Warning".yellow().bold(),
+                    e
+                );
+            }
+        }
+    }
+
+    // Show cache statistics if requested
+    if cli.show_cache_stats || (cli.verbose && cli.cache) {
+        let total = result.cache_hits + result.cache_misses;
+        if total > 0 {
+            let hit_rate = (result.cache_hits as f64 / total as f64) * 100.0;
+            eprintln!(
+                "{} Cache: {} hits, {} misses ({:.1}% hit rate)",
+                "Info:".blue().bold(),
+                result.cache_hits,
+                result.cache_misses,
+                hit_rate
+            );
+        }
+    }
 
     // Filter issues by module if requested
     if let Some(ref include_modules) = cli.modules {
@@ -1287,6 +1376,194 @@ fn show_coverage(report_path: &PathBuf, threshold: f64, format: &str) -> ExitCod
         ExitCode::SUCCESS
     } else {
         ExitCode::FAILURE
+    }
+}
+
+fn run_watch_mode(
+    path: &PathBuf,
+    debounce_ms: u64,
+    initial_analysis: bool,
+    min_severity: Severity,
+    enable_cache: bool,
+) -> ExitCode {
+    use std::time::{Duration, Instant};
+    use walkdir::WalkDir;
+
+    if !path.exists() {
+        eprintln!(
+            "{}: Path does not exist: {}",
+            "Error".red().bold(),
+            path.display()
+        );
+        return ExitCode::FAILURE;
+    }
+
+    println!("{}", "Java Analyzer - Watch Mode".bold().cyan());
+    println!("{}", "==========================".cyan());
+    println!("Watching: {}", path.display());
+    println!("Debounce: {}ms", debounce_ms);
+    println!("Cache: {}", if enable_cache { "enabled" } else { "disabled" });
+    println!();
+    println!("{}", "Press Ctrl+C to stop...".dimmed());
+    println!();
+
+    // Create config and analyzer
+    let config = AnalyzerConfig {
+        min_severity,
+        ..Default::default()
+    };
+
+    let cache_path = java_analyzer::cache::default_cache_path();
+    let analyzer = if enable_cache {
+        Analyzer::with_cache(config, cache_path.clone())
+    } else {
+        Analyzer::with_config(config)
+    };
+
+    // Setup watch configuration
+    let watch_config = WatchConfig {
+        debounce_ms,
+        initial_analysis,
+        extensions: vec!["java".to_string()],
+    };
+
+    // Create watcher
+    let mut watcher = match FileWatcher::new(path, watch_config) {
+        Ok(w) => w,
+        Err(e) => {
+            eprintln!("{}: {}", "Error".red().bold(), e);
+            return ExitCode::FAILURE;
+        }
+    };
+
+    // Run initial analysis if requested
+    if initial_analysis {
+        println!("{}", "Running initial analysis...".yellow());
+
+        // Collect Java files
+        let java_files: Vec<PathBuf> = WalkDir::new(path)
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.path().extension().map_or(false, |ext| ext == "java"))
+            .map(|e| e.path().to_path_buf())
+            .collect();
+
+        let file_count = java_files.len();
+        let start = Instant::now();
+        let result = analyzer.analyze(path);
+        let duration = start.elapsed();
+
+        // Show initial analysis results
+        let issue_count = result.issues.len();
+        println!(
+            "{} Initial analysis: {} files, {} issues in {}ms",
+            "✓".green(),
+            file_count,
+            if issue_count > 0 {
+                issue_count.to_string().yellow().to_string()
+            } else {
+                "0".green().to_string()
+            },
+            duration.as_millis()
+        );
+
+        if enable_cache {
+            if let Err(e) = analyzer.save_cache() {
+                eprintln!("{}: Failed to save cache: {}", "Warning".yellow(), e);
+            }
+        }
+
+        // Show summary by severity if there are issues
+        if issue_count > 0 {
+            let counts = result.severity_counts();
+            print!("  Severity: ");
+            let parts: Vec<String> = [
+                (Severity::Blocker, "blocker"),
+                (Severity::Critical, "critical"),
+                (Severity::Major, "major"),
+                (Severity::Minor, "minor"),
+                (Severity::Info, "info"),
+            ]
+            .iter()
+            .filter_map(|(sev, label)| {
+                counts.get(sev).and_then(|&count| {
+                    if count > 0 {
+                        Some(format!("{} {}", count, label))
+                    } else {
+                        None
+                    }
+                })
+            })
+            .collect();
+            println!("{}", parts.join(", ").dimmed());
+        }
+        println!();
+    }
+
+    println!("{}", "Watching for changes...".cyan());
+
+    // Main watch loop
+    loop {
+        // Poll for ready files
+        let ready_files = watcher.poll();
+
+        // Analyze ready files
+        for file_path in ready_files {
+            let start = Instant::now();
+            let issues = analyzer.analyze_file(&file_path);
+            let duration = start.elapsed();
+
+            let relative_path = file_path
+                .strip_prefix(path)
+                .unwrap_or(&file_path)
+                .display();
+
+            if issues.is_empty() {
+                println!(
+                    "{} {} - {} ({}ms)",
+                    "✓".green(),
+                    relative_path,
+                    "no issues".green(),
+                    duration.as_millis()
+                );
+            } else {
+                println!(
+                    "{} {} - {} issue{} ({}ms)",
+                    "!".yellow(),
+                    relative_path,
+                    issues.len().to_string().yellow(),
+                    if issues.len() == 1 { "" } else { "s" },
+                    duration.as_millis()
+                );
+
+                // Show individual issues
+                for issue in &issues {
+                    let severity_str = match issue.severity {
+                        Severity::Blocker => "BLOCKER".red().bold(),
+                        Severity::Critical => "CRITICAL".red(),
+                        Severity::Major => "MAJOR".yellow(),
+                        Severity::Minor => "MINOR".blue(),
+                        Severity::Info => "INFO".white(),
+                    };
+                    println!(
+                        "    {}:{} [{}] {} ({})",
+                        issue.line,
+                        issue.column,
+                        severity_str,
+                        issue.message,
+                        issue.rule_id.dimmed()
+                    );
+                }
+            }
+
+            // Save cache if enabled
+            if enable_cache {
+                let _ = analyzer.save_cache();
+            }
+        }
+
+        // Small sleep to avoid busy-waiting
+        std::thread::sleep(Duration::from_millis(100));
     }
 }
 
