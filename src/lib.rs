@@ -10,6 +10,13 @@
 pub mod rules;
 pub mod reports;
 pub mod parser;
+pub mod quality_gate;
+pub mod duplication;
+pub mod baseline;
+pub mod debt;
+pub mod hotspots;
+pub mod cache;
+pub mod coverage;
 
 use std::collections::HashMap;
 use std::fs;
@@ -23,6 +30,13 @@ use walkdir::WalkDir;
 
 pub use rules::{Rule, RuleCategory, Severity, Issue, AnalysisContext, OwaspCategory};
 pub use reports::{Report, ReportFormat};
+pub use quality_gate::{QualityGate, QualityCondition, QualityGateResult, ConditionResult};
+pub use duplication::{DuplicationDetector, DuplicationConfig, DuplicationResult, DuplicateBlock, CodeLocation};
+pub use baseline::{Baseline, IssueFingerprint, DifferentialResult, compare_with_baseline};
+pub use debt::{DebtSummary, DebtRating, DebtBreakdown, format_debt};
+pub use hotspots::{SecurityHotspot, HotspotResult, HotspotStatus, HotspotPriority, HotspotCategory};
+pub use cache::{AnalysisCache, CacheEntry, CacheStats, hash_config};
+pub use coverage::{CoverageReport, FileCoverage, load_coverage, parse_lcov, parse_jacoco_xml};
 
 /// Configuration for the analyzer
 #[derive(Debug, Clone, Serialize, Deserialize)]
