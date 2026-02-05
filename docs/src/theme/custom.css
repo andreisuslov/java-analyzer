@@ -1,0 +1,41 @@
+/* Custom styles for Java Analyzer docs */
+
+:root {
+    --accent-color: #2196F3;
+}
+
+/* Code blocks */
+pre code {
+    font-size: 0.9em;
+}
+
+/* Tables */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1em 0;
+}
+
+th {
+    background-color: var(--quote-bg);
+    padding: 0.5em;
+    text-align: left;
+}
+
+td {
+    padding: 0.5em;
+    border-bottom: 1px solid var(--table-border-color);
+}
+
+/* Command reference styling */
+h1 code {
+    background: transparent;
+    font-size: 1em;
+}
+
+/* Severity badges */
+.severity-blocker { color: #d32f2f; font-weight: bold; }
+.severity-critical { color: #f44336; }
+.severity-major { color: #ff9800; }
+.severity-minor { color: #2196f3; }
+.severity-info { color: #9e9e9e; }
