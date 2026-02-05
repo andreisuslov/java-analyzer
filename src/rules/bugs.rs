@@ -1507,68 +1507,103 @@ regex_rule!(
 );
 
 // S2259: Null pointers should not be dereferenced
-pub struct S2259NullDereference;
-impl Rule for S2259NullDereference {
+pub struct S2259NullPointerDereference;
+
+impl Rule for S2259NullPointerDereference {
     fn id(&self) -> &str {
         "S2259"
     }
+
     fn title(&self) -> &str {
         "Null pointers should not be dereferenced"
     }
+
     fn severity(&self) -> Severity {
-        Severity::Blocker
+        Severity::Major // Will be Blocker for definite null
     }
+
     fn category(&self) -> RuleCategory {
         RuleCategory::Bug
     }
+
+    fn description(&self) -> &str {
+        "A reference to null should never be dereferenced. Doing so will cause a NullPointerException."
+    }
+
+    fn cwe(&self) -> Option<u32> {
+        Some(476) // CWE-476: NULL Pointer Dereference
+    }
+
+    fn debt_minutes(&self) -> u32 {
+        10
+    }
+
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
-        static NULL_ASSIGN: Lazy<Regex> =
-            Lazy::new(|| Regex::new(r"(\w+)\s*=\s*null\s*;").unwrap());
-        static DEREF: Lazy<Regex> = Lazy::new(|| Regex::new(r"\b(\w+)\s*\.\s*\w+").unwrap());
+        use crate::dataflow::{analyze_nullability, CfgBuilder};
 
         let mut issues = Vec::new();
-        let mut null_vars: HashSet<String> = HashSet::new();
 
-        for (line_num, line) in ctx.source.lines().enumerate() {
-            // Track null assignments
-            for cap in NULL_ASSIGN.captures_iter(line) {
-                if let Some(var) = cap.get(1) {
-                    null_vars.insert(var.as_str().to_string());
-                }
+        // Find all method declarations
+        let root = ctx.tree.root_node();
+
+        fn find_methods<'a>(node: tree_sitter::Node<'a>, methods: &mut Vec<tree_sitter::Node<'a>>) {
+            if node.kind() == "method_declaration" || node.kind() == "constructor_declaration" {
+                methods.push(node);
             }
-
-            // Check for dereferences
-            for cap in DEREF.captures_iter(line) {
-                if let Some(var) = cap.get(1) {
-                    let var_name = var.as_str();
-                    if null_vars.contains(var_name)
-                        && !line.contains(&format!("{} =", var_name))
-                        && !line.contains(&format!("{} !=", var_name))
-                        && !line.contains(&format!("{} ==", var_name))
-                    {
-                        issues.push(create_issue(
-                            self,
-                            ctx.file_path,
-                            line_num + 1,
-                            1,
-                            format!("'{}' may be null here.", var_name),
-                            Some(line.trim().to_string()),
-                        ));
-                        null_vars.remove(var_name);
-                    }
-                }
-            }
-
-            // Clear on reassignment
-            static ASSIGN: Lazy<Regex> = Lazy::new(|| Regex::new(r"(\w+)\s*=\s*[^=]").unwrap());
-            for cap in ASSIGN.captures_iter(line) {
-                if let Some(var) = cap.get(1) {
-                    if !line.contains("= null") {
-                        null_vars.remove(var.as_str());
-                    }
-                }
+            let mut cursor = node.walk();
+            for child in node.children(&mut cursor) {
+                find_methods(child, methods);
             }
         }
+
+        let mut methods = Vec::new();
+        find_methods(root, &mut methods);
+
+        // Analyze each method
+        for method in methods {
+            let cfg = CfgBuilder::new(ctx.source).build_method(method);
+            let result = analyze_nullability(&cfg);
+
+            for deref in result.dereferences {
+                let severity = if deref.state.is_definitely_null() {
+                    Severity::Blocker
+                } else {
+                    Severity::Major
+                };
+
+                let message = if deref.state.is_definitely_null() {
+                    format!(
+                        "Null pointer dereference: '{}' is always null here ({})",
+                        deref.variable, deref.dereference_type
+                    )
+                } else {
+                    format!(
+                        "Potential null pointer dereference: '{}' may be null ({})",
+                        deref.variable, deref.dereference_type
+                    )
+                };
+
+                // Get code snippet
+                let snippet = ctx
+                    .source
+                    .lines()
+                    .nth(deref.line.saturating_sub(1))
+                    .map(|l| l.trim().to_string());
+
+                let mut issue = create_issue(
+                    self,
+                    ctx.file_path,
+                    deref.line,
+                    deref.column,
+                    message,
+                    snippet,
+                );
+                issue.severity = severity;
+                issue.cwe = Some(476);
+                issues.push(issue);
+            }
+        }
+
         issues
     }
 }
@@ -5062,7 +5097,7 @@ pub fn create_rules() -> Vec<Box<dyn Rule>> {
         Box::new(S2236ThreadWaitNotify),
         Box::new(S2251ForLoopDirection),
         Box::new(S2252LoopNeverExecutes),
-        Box::new(S2259NullDereference),
+        Box::new(S2259NullPointerDereference),
         Box::new(S2272IteratorNextException),
         Box::new(S2273WaitOutsideSync),
         Box::new(S2275PrintfFormat),
@@ -5289,5 +5324,168 @@ mod tests {
         };
         let issues = S4973EqualsForStrings.check(&ctx);
         assert!(!issues.is_empty());
+    }
+
+    // ===== S2259 Null Pointer Dereference Tests =====
+
+    #[test]
+    fn test_s2259_explicit_null_dereference() {
+        let source = r#"
+            public class Test {
+                void foo() {
+                    String s = null;
+                    s.length();
+                }
+            }
+        "#;
+        let (tree, config) = create_test_context(source);
+        let ctx = AnalysisContext {
+            source,
+            file_path: "Test.java",
+            tree: &tree,
+            config: &config,
+        };
+        let rule = S2259NullPointerDereference;
+        let issues = rule.check(&ctx);
+        assert!(!issues.is_empty(), "Should detect null dereference");
+        assert_eq!(issues[0].severity, Severity::Blocker);
+    }
+
+    #[test]
+    fn test_s2259_null_after_reassignment() {
+        let source = r#"
+            public class Test {
+                void foo() {
+                    String s = "hello";
+                    s = null;
+                    s.length();
+                }
+            }
+        "#;
+        let (tree, config) = create_test_context(source);
+        let ctx = AnalysisContext {
+            source,
+            file_path: "Test.java",
+            tree: &tree,
+            config: &config,
+        };
+        let rule = S2259NullPointerDereference;
+        let issues = rule.check(&ctx);
+        assert!(!issues.is_empty(), "Should detect null after reassignment");
+    }
+
+    #[test]
+    fn test_s2259_parameter_could_be_null() {
+        let source = r#"
+            public class Test {
+                void foo(String s) {
+                    s.length();
+                }
+            }
+        "#;
+        let (tree, config) = create_test_context(source);
+        let ctx = AnalysisContext {
+            source,
+            file_path: "Test.java",
+            tree: &tree,
+            config: &config,
+        };
+        let rule = S2259NullPointerDereference;
+        let issues = rule.check(&ctx);
+        assert!(!issues.is_empty(), "Should warn about parameter possibly being null");
+        assert_eq!(issues[0].severity, Severity::Major);
+    }
+
+    #[test]
+    fn test_s2259_null_check_guards_access() {
+        let source = r#"
+            public class Test {
+                void foo(String s) {
+                    if (s != null) {
+                        s.length();
+                    }
+                }
+            }
+        "#;
+        let (tree, config) = create_test_context(source);
+        let ctx = AnalysisContext {
+            source,
+            file_path: "Test.java",
+            tree: &tree,
+            config: &config,
+        };
+        let rule = S2259NullPointerDereference;
+        let issues = rule.check(&ctx);
+        assert!(issues.is_empty(), "Should not warn when null check guards access");
+    }
+
+    #[test]
+    fn test_s2259_assignment_after_null() {
+        let source = r#"
+            public class Test {
+                void foo() {
+                    String s = null;
+                    s = "safe";
+                    s.length();
+                }
+            }
+        "#;
+        let (tree, config) = create_test_context(source);
+        let ctx = AnalysisContext {
+            source,
+            file_path: "Test.java",
+            tree: &tree,
+            config: &config,
+        };
+        let rule = S2259NullPointerDereference;
+        let issues = rule.check(&ctx);
+        assert!(issues.is_empty(), "Should not warn when reassigned to non-null");
+    }
+
+    #[test]
+    fn test_s2259_conditional_null() {
+        let source = r#"
+            public class Test {
+                void foo(boolean cond) {
+                    String s = cond ? "hi" : null;
+                    s.length();
+                }
+            }
+        "#;
+        let (tree, config) = create_test_context(source);
+        let ctx = AnalysisContext {
+            source,
+            file_path: "Test.java",
+            tree: &tree,
+            config: &config,
+        };
+        let rule = S2259NullPointerDereference;
+        let issues = rule.check(&ctx);
+        assert!(!issues.is_empty(), "Should warn about conditional null");
+        assert_eq!(issues[0].severity, Severity::Major);
+    }
+
+    #[test]
+    fn test_s2259_early_return_pattern() {
+        let source = r#"
+            public class Test {
+                void foo(String s) {
+                    if (s == null) {
+                        return;
+                    }
+                    s.length();
+                }
+            }
+        "#;
+        let (tree, config) = create_test_context(source);
+        let ctx = AnalysisContext {
+            source,
+            file_path: "Test.java",
+            tree: &tree,
+            config: &config,
+        };
+        let rule = S2259NullPointerDereference;
+        let issues = rule.check(&ctx);
+        assert!(issues.is_empty(), "Should not warn after early return on null");
     }
 }

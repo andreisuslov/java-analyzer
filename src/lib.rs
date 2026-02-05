@@ -30,6 +30,7 @@ pub mod autofix;
 pub mod baseline;
 pub mod cache;
 pub mod coverage;
+pub mod dataflow;
 pub mod debt;
 pub mod duplication;
 pub mod hotspots;
