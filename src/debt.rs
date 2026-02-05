@@ -6,8 +6,7 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::rules::RuleCategory;
-use crate::{AnalysisResult, Severity};
+use crate::AnalysisResult;
 
 /// Technical debt summary
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -219,7 +218,8 @@ impl DebtSummary {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::rules::Issue;
+    use crate::rules::{Issue, RuleCategory};
+    use crate::Severity;
 
     fn create_issue(
         rule_id: &str,

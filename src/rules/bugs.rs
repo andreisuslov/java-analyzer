@@ -1745,11 +1745,9 @@ impl Rule for S2276WaitUnconditional {
         let mut in_while = false;
         let mut has_if = false;
         let mut brace_count = 0;
-        let mut while_start = 0;
         for (line_num, line) in ctx.source.lines().enumerate() {
             if WHILE_RE.is_match(line) && !in_while {
                 in_while = true;
-                while_start = line_num + 1;
                 has_if = false;
                 brace_count = 0;
             }

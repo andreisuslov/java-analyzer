@@ -2,7 +2,9 @@
 //!
 //! Generates analysis reports in various formats (text, JSON, HTML, SARIF).
 
-use crate::{AnalysisResult, Issue, RuleCategory, Severity};
+#[cfg(test)]
+use crate::rules::RuleCategory;
+use crate::{AnalysisResult, Issue, Severity};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io::Write;

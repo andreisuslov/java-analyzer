@@ -2633,6 +2633,7 @@ macro_rules! security_rule {
 }
 
 /// Extended security rule macro with OWASP/CWE mapping and debt estimation
+#[allow(unused_macros)]
 macro_rules! security_rule_mapped {
     ($struct_name:ident, $id:expr, $title:expr, $severity:expr, $pattern:expr, $message:expr,
      owasp: $owasp:expr, cwe: $cwe:expr, debt: $debt:expr) => {

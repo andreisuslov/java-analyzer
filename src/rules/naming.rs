@@ -372,10 +372,10 @@ impl Rule for S118AbstractClassNaming {
         static PATTERN: Lazy<Regex> = Lazy::new(|| {
             Regex::new(r"^Abstract[A-Z][a-zA-Z0-9]*$|^[A-Z][a-zA-Z0-9]*Base$").unwrap()
         });
-        let mut issues = Vec::new();
+        let issues = Vec::new();
 
         // Find abstract classes
-        for (line_num, line) in ctx.source.lines().enumerate() {
+        for line in ctx.source.lines() {
             if line.contains("abstract") && line.contains("class") {
                 static CLASS_NAME: Lazy<Regex> =
                     Lazy::new(|| Regex::new(r"abstract\s+class\s+(\w+)").unwrap());

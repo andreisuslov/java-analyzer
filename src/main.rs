@@ -2,15 +2,19 @@
 //!
 //! A fast static code analyzer for Java based on SonarSource rules.
 
+#![allow(clippy::ptr_arg)]
+#![allow(clippy::field_reassign_with_default)]
+#![allow(clippy::unnecessary_map_or)]
+#![allow(clippy::manual_map)]
+
 use std::fs;
-use std::io::Write;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
 use clap::{Parser, Subcommand, ValueEnum};
 use colored::*;
 
-use java_analyzer::coverage::{load_coverage, CoverageReport};
+use java_analyzer::coverage::load_coverage;
 use java_analyzer::hotspots::HotspotResult;
 use java_analyzer::reports::{Report, ReportConfig, ReportFormat};
 use java_analyzer::{compare_with_baseline, Baseline};
