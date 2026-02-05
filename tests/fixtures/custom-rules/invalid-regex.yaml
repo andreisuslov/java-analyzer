@@ -1,0 +1,8 @@
+rules:
+  - id: "CUSTOM-BAD"
+    title: "Invalid regex pattern"
+    severity: major
+    category: bug
+    pattern: "[unclosed"
+    message: "This will fail to compile"
+    debt_minutes: 5

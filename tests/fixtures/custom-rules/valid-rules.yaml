@@ -1,0 +1,26 @@
+rules:
+  - id: "CUSTOM-001"
+    title: "Avoid System.out in production"
+    severity: major
+    category: code_smell
+    pattern: "System\\.out\\.println"
+    message: "Use logging framework instead of System.out.println"
+    negative_pattern: "@Test"
+    debt_minutes: 5
+
+  - id: "CUSTOM-002"
+    title: "Avoid hardcoded localhost"
+    severity: minor
+    category: security
+    pattern: "localhost|127\\.0\\.0\\.1"
+    message: "Avoid hardcoded localhost references"
+    debt_minutes: 10
+    description: "Hardcoded localhost references may cause issues in production environments"
+
+  - id: "CUSTOM-003"
+    title: "TODO comments should be tracked"
+    severity: info
+    category: documentation
+    pattern: "TODO:|FIXME:|HACK:"
+    message: "Found unresolved TODO/FIXME comment"
+    debt_minutes: 15
