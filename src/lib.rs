@@ -21,11 +21,12 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use walkdir::WalkDir;
 
-pub use rules::{Rule, RuleCategory, Severity, Issue, AnalysisContext};
+pub use rules::{Rule, RuleCategory, Severity, Issue, AnalysisContext, OwaspCategory};
 pub use reports::{Report, ReportFormat};
 
 /// Configuration for the analyzer
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct AnalyzerConfig {
     /// Minimum severity to report
     pub min_severity: Severity,
@@ -41,6 +42,10 @@ pub struct AnalyzerConfig {
     pub max_params: Option<usize>,
     /// Maximum nesting depth
     pub max_nesting: Option<usize>,
+    /// Fail on severity level (for CI)
+    pub fail_on_severity: Option<Severity>,
+    /// Output format
+    pub output_format: Option<String>,
 }
 
 impl Default for AnalyzerConfig {
@@ -58,8 +63,97 @@ impl Default for AnalyzerConfig {
             max_complexity: 15,
             max_params: Some(7),
             max_nesting: Some(4),
+            fail_on_severity: None,
+            output_format: None,
         }
     }
+}
+
+impl AnalyzerConfig {
+    /// Load configuration from a TOML file
+    pub fn from_file(path: &Path) -> Result<Self, ConfigError> {
+        let content = fs::read_to_string(path)
+            .map_err(|e| ConfigError::IoError(e.to_string()))?;
+
+        toml::from_str(&content)
+            .map_err(|e| ConfigError::ParseError(e.to_string()))
+    }
+
+    /// Try to find and load config from standard locations
+    pub fn discover(start_path: &Path) -> Option<Self> {
+        let config_names = [
+            ".java-analyzer.toml",
+            "java-analyzer.toml",
+            ".java-analyzer.json",
+        ];
+
+        // Search from start_path up to root
+        let mut current = if start_path.is_file() {
+            start_path.parent()
+        } else {
+            Some(start_path)
+        };
+
+        while let Some(dir) = current {
+            for name in &config_names {
+                let config_path = dir.join(name);
+                if config_path.exists() {
+                    if name.ends_with(".toml") {
+                        if let Ok(config) = Self::from_file(&config_path) {
+                            return Some(config);
+                        }
+                    } else if name.ends_with(".json") {
+                        if let Ok(content) = fs::read_to_string(&config_path) {
+                            if let Ok(config) = serde_json::from_str(&content) {
+                                return Some(config);
+                            }
+                        }
+                    }
+                }
+            }
+            current = dir.parent();
+        }
+
+        None
+    }
+
+    /// Merge another config into this one (other takes precedence)
+    pub fn merge(&mut self, other: Self) {
+        if other.min_severity != Severity::Info {
+            self.min_severity = other.min_severity;
+        }
+        if other.enabled_rules.is_some() {
+            self.enabled_rules = other.enabled_rules;
+        }
+        if !other.disabled_rules.is_empty() {
+            self.disabled_rules.extend(other.disabled_rules);
+        }
+        if !other.exclude_patterns.is_empty() {
+            self.exclude_patterns.extend(other.exclude_patterns);
+        }
+        if other.max_complexity != 15 {
+            self.max_complexity = other.max_complexity;
+        }
+        if other.max_params.is_some() {
+            self.max_params = other.max_params;
+        }
+        if other.max_nesting.is_some() {
+            self.max_nesting = other.max_nesting;
+        }
+        if other.fail_on_severity.is_some() {
+            self.fail_on_severity = other.fail_on_severity;
+        }
+        if other.output_format.is_some() {
+            self.output_format = other.output_format;
+        }
+    }
+}
+
+/// Configuration loading errors
+#[derive(Debug, Clone)]
+pub enum ConfigError {
+    IoError(String),
+    ParseError(String),
 }
 
 /// Main analyzer engine
@@ -257,6 +351,7 @@ impl AnalysisResult {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tempfile::TempDir;
 
     #[test]
     fn test_analyzer_creation() {
@@ -272,5 +367,82 @@ mod tests {
         };
         let analyzer = Analyzer::with_config(config);
         assert!(!analyzer.available_rules().is_empty());
+    }
+
+    // ===== Config File Tests =====
+
+    #[test]
+    fn test_config_from_toml_file() {
+        let temp_dir = TempDir::new().unwrap();
+        let config_path = temp_dir.path().join("java-analyzer.toml");
+
+        let config_content = r#"
+min_severity = "major"
+max_complexity = 20
+disabled_rules = ["S100", "S101"]
+exclude_patterns = ["**/test/**"]
+"#;
+        fs::write(&config_path, config_content).unwrap();
+
+        let config = AnalyzerConfig::from_file(&config_path).unwrap();
+
+        assert_eq!(config.min_severity, Severity::Major);
+        assert_eq!(config.max_complexity, 20);
+        assert!(config.disabled_rules.contains(&"S100".to_string()));
+        assert!(config.exclude_patterns.contains(&"**/test/**".to_string()));
+    }
+
+    #[test]
+    fn test_config_discover() {
+        let temp_dir = TempDir::new().unwrap();
+        let config_path = temp_dir.path().join(".java-analyzer.toml");
+
+        let config_content = r#"
+min_severity = "critical"
+max_complexity = 10
+"#;
+        fs::write(&config_path, config_content).unwrap();
+
+        let config = AnalyzerConfig::discover(temp_dir.path());
+        assert!(config.is_some());
+
+        let config = config.unwrap();
+        assert_eq!(config.min_severity, Severity::Critical);
+        assert_eq!(config.max_complexity, 10);
+    }
+
+    #[test]
+    fn test_config_discover_not_found() {
+        let temp_dir = TempDir::new().unwrap();
+        let config = AnalyzerConfig::discover(temp_dir.path());
+        assert!(config.is_none());
+    }
+
+    #[test]
+    fn test_config_merge() {
+        let mut base = AnalyzerConfig::default();
+        let override_config = AnalyzerConfig {
+            min_severity: Severity::Critical,
+            disabled_rules: vec!["S100".to_string()],
+            max_complexity: 25,
+            ..Default::default()
+        };
+
+        base.merge(override_config);
+
+        assert_eq!(base.min_severity, Severity::Critical);
+        assert!(base.disabled_rules.contains(&"S100".to_string()));
+        assert_eq!(base.max_complexity, 25);
+    }
+
+    #[test]
+    fn test_config_default_values() {
+        let config = AnalyzerConfig::default();
+
+        assert_eq!(config.min_severity, Severity::Info);
+        assert_eq!(config.max_complexity, 15);
+        assert!(config.enabled_rules.is_none());
+        assert!(config.disabled_rules.is_empty());
+        assert!(!config.exclude_patterns.is_empty());
     }
 }

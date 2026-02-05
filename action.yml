@@ -1,0 +1,110 @@
+name: 'Java Analyzer'
+description: 'Fast static code analyzer for Java with 987 SonarSource-based rules'
+author: 'andreisuslov'
+
+branding:
+  icon: 'check-circle'
+  color: 'green'
+
+inputs:
+  path:
+    description: 'Path to analyze (file or directory)'
+    required: false
+    default: '.'
+  min-severity:
+    description: 'Minimum severity level to report (info, minor, major, critical, blocker)'
+    required: false
+    default: 'info'
+  fail-on-severity:
+    description: 'Fail if issues of this severity or higher are found'
+    required: false
+    default: ''
+  format:
+    description: 'Output format (text, json, sarif, csv, markdown)'
+    required: false
+    default: 'text'
+  exclude-rules:
+    description: 'Comma-separated list of rules to exclude'
+    required: false
+    default: ''
+  exclude-patterns:
+    description: 'Comma-separated list of path patterns to exclude'
+    required: false
+    default: ''
+  max-complexity:
+    description: 'Maximum cognitive complexity threshold'
+    required: false
+    default: '15'
+
+outputs:
+  issues-count:
+    description: 'Total number of issues found'
+    value: ${{ steps.analyze.outputs.issues-count }}
+  blocker-count:
+    description: 'Number of blocker issues'
+    value: ${{ steps.analyze.outputs.blocker-count }}
+  critical-count:
+    description: 'Number of critical issues'
+    value: ${{ steps.analyze.outputs.critical-count }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Rust
+      uses: dtolnay/rust-action@stable
+      shell: bash
+
+    - name: Cache java-analyzer
+      uses: actions/cache@v4
+      id: cache-analyzer
+      with:
+        path: ~/.cargo/bin/java-analyzer
+        key: java-analyzer-${{ runner.os }}-v1.0.0
+
+    - name: Install java-analyzer
+      if: steps.cache-analyzer.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        cargo install --git https://github.com/andreisuslov/java-analyzer.git
+
+    - name: Run analysis
+      id: analyze
+      shell: bash
+      env:
+        ANALYZER_PATH: ${{ inputs.path }}
+        ANALYZER_SEVERITY: ${{ inputs.min-severity }}
+        ANALYZER_FAIL_SEVERITY: ${{ inputs.fail-on-severity }}
+        ANALYZER_FORMAT: ${{ inputs.format }}
+        ANALYZER_EXCLUDE_RULES: ${{ inputs.exclude-rules }}
+        ANALYZER_EXCLUDE_PATTERNS: ${{ inputs.exclude-patterns }}
+        ANALYZER_MAX_COMPLEXITY: ${{ inputs.max-complexity }}
+      run: |
+        ARGS="--format $ANALYZER_FORMAT --min-severity $ANALYZER_SEVERITY --max-complexity $ANALYZER_MAX_COMPLEXITY"
+
+        if [ -n "$ANALYZER_FAIL_SEVERITY" ]; then
+          ARGS="$ARGS --fail-on-severity $ANALYZER_FAIL_SEVERITY"
+        fi
+
+        if [ -n "$ANALYZER_EXCLUDE_RULES" ]; then
+          ARGS="$ARGS --exclude-rules $ANALYZER_EXCLUDE_RULES"
+        fi
+
+        if [ -n "$ANALYZER_EXCLUDE_PATTERNS" ]; then
+          ARGS="$ARGS --exclude $ANALYZER_EXCLUDE_PATTERNS"
+        fi
+
+        # Run analysis and capture output
+        OUTPUT=$(~/.cargo/bin/java-analyzer "$ANALYZER_PATH" $ARGS --summary-only 2>&1) || true
+        echo "$OUTPUT"
+
+        # Extract counts from output
+        ISSUES=$(echo "$OUTPUT" | grep -oP 'Total issues:\s*\K\d+' || echo "0")
+        BLOCKER=$(echo "$OUTPUT" | grep -oP 'BLOCKER\s*:\s*\K\d+' || echo "0")
+        CRITICAL=$(echo "$OUTPUT" | grep -oP 'CRITICAL\s*:\s*\K\d+' || echo "0")
+
+        echo "issues-count=$ISSUES" >> $GITHUB_OUTPUT
+        echo "blocker-count=$BLOCKER" >> $GITHUB_OUTPUT
+        echo "critical-count=$CRITICAL" >> $GITHUB_OUTPUT
+
+        # Run full analysis
+        ~/.cargo/bin/java-analyzer "$ANALYZER_PATH" $ARGS

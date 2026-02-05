@@ -538,6 +538,8 @@ mod tests {
     use super::*;
 
     fn create_test_result() -> AnalysisResult {
+        use crate::rules::OwaspCategory;
+
         AnalysisResult {
             files_analyzed: 5,
             duration_ms: 100,
@@ -554,6 +556,9 @@ mod tests {
                     end_column: None,
                     message: "Rename method".to_string(),
                     code_snippet: Some("void BadMethod() {}".to_string()),
+                    owasp: None,
+                    cwe: None,
+                    debt_minutes: 5,
                 },
                 Issue {
                     rule_id: "S2068".to_string(),
@@ -567,6 +572,9 @@ mod tests {
                     end_column: None,
                     message: "Remove hardcoded password".to_string(),
                     code_snippet: Some("String password = \"secret\"".to_string()),
+                    owasp: Some(OwaspCategory::A07AuthenticationFailures),
+                    cwe: Some(798),
+                    debt_minutes: 30,
                 },
             ],
         }

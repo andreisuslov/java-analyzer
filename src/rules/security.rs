@@ -152,6 +152,9 @@ impl Rule for S2068HardcodedCredentials {
     fn title(&self) -> &str { "Credentials should not be hard-coded" }
     fn severity(&self) -> Severity { Severity::Blocker }
     fn category(&self) -> RuleCategory { RuleCategory::Security }
+    fn owasp(&self) -> Option<OwaspCategory> { Some(OwaspCategory::A07AuthenticationFailures) }
+    fn cwe(&self) -> Option<u32> { Some(798) } // CWE-798: Use of Hard-coded Credentials
+    fn debt_minutes(&self) -> u32 { 30 }
 
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         static CRED_PATTERN: Lazy<Regex> = Lazy::new(|| {
@@ -559,6 +562,9 @@ impl Rule for S3649SqlInjection {
     fn title(&self) -> &str { "Database queries should not be vulnerable to injection" }
     fn severity(&self) -> Severity { Severity::Blocker }
     fn category(&self) -> RuleCategory { RuleCategory::Security }
+    fn owasp(&self) -> Option<OwaspCategory> { Some(OwaspCategory::A03Injection) }
+    fn cwe(&self) -> Option<u32> { Some(89) } // CWE-89: SQL Injection
+    fn debt_minutes(&self) -> u32 { 45 }
 
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         static SQL_CONCAT: Lazy<Regex> = Lazy::new(|| {
@@ -652,6 +658,9 @@ impl Rule for S4790WeakHashing {
     fn title(&self) -> &str { "Weak hashing algorithms should not be used" }
     fn severity(&self) -> Severity { Severity::Critical }
     fn category(&self) -> RuleCategory { RuleCategory::Security }
+    fn owasp(&self) -> Option<OwaspCategory> { Some(OwaspCategory::A02CryptographicFailures) }
+    fn cwe(&self) -> Option<u32> { Some(328) } // CWE-328: Reversible One-Way Hash
+    fn debt_minutes(&self) -> u32 { 20 }
 
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         static WEAK_HASH: Lazy<Regex> = Lazy::new(|| {
@@ -1832,6 +1841,34 @@ macro_rules! security_rule {
             fn title(&self) -> &str { $title }
             fn severity(&self) -> Severity { $severity }
             fn category(&self) -> RuleCategory { RuleCategory::Security }
+            fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
+                static RE: Lazy<Regex> = Lazy::new(|| Regex::new($pattern).unwrap());
+                let mut issues = Vec::new();
+                for (line_num, line) in ctx.source.lines().enumerate() {
+                    if RE.is_match(line) && !line.trim().starts_with("//") {
+                        issues.push(create_issue(self, ctx.file_path, line_num + 1, 1,
+                            $message.to_string(), Some(line.trim().to_string())));
+                    }
+                }
+                issues
+            }
+        }
+    };
+}
+
+/// Extended security rule macro with OWASP/CWE mapping and debt estimation
+macro_rules! security_rule_mapped {
+    ($struct_name:ident, $id:expr, $title:expr, $severity:expr, $pattern:expr, $message:expr,
+     owasp: $owasp:expr, cwe: $cwe:expr, debt: $debt:expr) => {
+        pub struct $struct_name;
+        impl Rule for $struct_name {
+            fn id(&self) -> &str { $id }
+            fn title(&self) -> &str { $title }
+            fn severity(&self) -> Severity { $severity }
+            fn category(&self) -> RuleCategory { RuleCategory::Security }
+            fn owasp(&self) -> Option<OwaspCategory> { Some($owasp) }
+            fn cwe(&self) -> Option<u32> { Some($cwe) }
+            fn debt_minutes(&self) -> u32 { $debt }
             fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
                 static RE: Lazy<Regex> = Lazy::new(|| Regex::new($pattern).unwrap());
                 let mut issues = Vec::new();
