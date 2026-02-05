@@ -210,6 +210,15 @@ impl Rule for S2076CommandInjection {
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
     }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A03Injection)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(78) // CWE-78: OS Command Injection
+    }
+    fn debt_minutes(&self) -> u32 {
+        45
+    }
 
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         static RUNTIME_EXEC: Lazy<Regex> = Lazy::new(|| {
@@ -254,6 +263,15 @@ impl Rule for S2078LdapInjection {
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
     }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A03Injection)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(90) // CWE-90: LDAP Injection
+    }
+    fn debt_minutes(&self) -> u32 {
+        45
+    }
 
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         static LDAP_SEARCH: Lazy<Regex> =
@@ -293,6 +311,15 @@ impl Rule for S2083PathInjection {
     }
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
+    }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A01BrokenAccessControl)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(22) // CWE-22: Path Traversal
+    }
+    fn debt_minutes(&self) -> u32 {
+        30
     }
 
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
@@ -335,6 +362,15 @@ impl Rule for S2089HttpOnlyCookie {
     }
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
+    }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A05SecurityMisconfiguration)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(1004) // CWE-1004: Sensitive Cookie Without HttpOnly Flag
+    }
+    fn debt_minutes(&self) -> u32 {
+        10
     }
 
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
@@ -383,6 +419,15 @@ impl Rule for S2092CookieSecureFlag {
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
     }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A05SecurityMisconfiguration)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(614) // CWE-614: Sensitive Cookie Without Secure Flag
+    }
+    fn debt_minutes(&self) -> u32 {
+        10
+    }
 
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         static COOKIE_NEW: Lazy<Regex> = Lazy::new(|| Regex::new(r"new\s+Cookie\s*\(").unwrap());
@@ -428,6 +473,15 @@ impl Rule for S2095ResourceLeak {
     }
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
+    }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A05SecurityMisconfiguration)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(404) // CWE-404: Improper Resource Shutdown or Release
+    }
+    fn debt_minutes(&self) -> u32 {
+        15
     }
 
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
@@ -506,6 +560,15 @@ impl Rule for S2245PseudoRandomGenerator {
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
     }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A02CryptographicFailures)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(330) // CWE-330: Use of Insufficiently Random Values
+    }
+    fn debt_minutes(&self) -> u32 {
+        15
+    }
 
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         static WEAK_RANDOM: Lazy<Regex> =
@@ -544,6 +607,15 @@ impl Rule for S2255CookieWriting {
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
     }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A05SecurityMisconfiguration)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(614) // CWE-614: Sensitive Cookie in HTTPS Session Without Secure Attribute
+    }
+    fn debt_minutes(&self) -> u32 {
+        10
+    }
 
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         static COOKIE_ADD: Lazy<Regex> = Lazy::new(|| Regex::new(r"\.addCookie\s*\(").unwrap());
@@ -579,6 +651,15 @@ impl Rule for S2257CustomCrypto {
     }
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
+    }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A02CryptographicFailures)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(327) // CWE-327: Use of Broken or Risky Cryptographic Algorithm
+    }
+    fn debt_minutes(&self) -> u32 {
+        60
     }
 
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
@@ -617,6 +698,15 @@ impl Rule for S2386MutableStaticField {
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
     }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A04InsecureDesign)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(500) // CWE-500: Public Static Field Not Marked Final
+    }
+    fn debt_minutes(&self) -> u32 {
+        15
+    }
 
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         static MUTABLE_STATIC: Lazy<Regex> =
@@ -653,6 +743,15 @@ impl Rule for S3329IvReuse {
     }
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
+    }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A02CryptographicFailures)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(329) // CWE-329: Not Using Random IV with CBC Mode
+    }
+    fn debt_minutes(&self) -> u32 {
+        20
     }
 
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
@@ -743,6 +842,15 @@ impl Rule for S4426CryptoKeySize {
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
     }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A02CryptographicFailures)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(326) // CWE-326: Inadequate Encryption Strength
+    }
+    fn debt_minutes(&self) -> u32 {
+        20
+    }
 
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         static WEAK_KEY: Lazy<Regex> =
@@ -781,6 +889,15 @@ impl Rule for S4502DisabledCsrf {
     }
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
+    }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A01BrokenAccessControl)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(352) // CWE-352: Cross-Site Request Forgery
+    }
+    fn debt_minutes(&self) -> u32 {
+        30
     }
 
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
@@ -867,6 +984,15 @@ impl Rule for S5131XssVulnerability {
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
     }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A03Injection)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(79) // CWE-79: Cross-site Scripting (XSS)
+    }
+    fn debt_minutes(&self) -> u32 {
+        30
+    }
 
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         static PRINT_WRITER: Lazy<Regex> = Lazy::new(|| {
@@ -904,6 +1030,15 @@ impl Rule for S5144OpenRedirect {
     }
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
+    }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A01BrokenAccessControl)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(601) // CWE-601: URL Redirection to Untrusted Site
+    }
+    fn debt_minutes(&self) -> u32 {
+        20
     }
 
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
@@ -943,6 +1078,15 @@ impl Rule for S5146HttpResponseSplitting {
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
     }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A03Injection)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(113) // CWE-113: HTTP Response Splitting
+    }
+    fn debt_minutes(&self) -> u32 {
+        30
+    }
 
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         static HEADER_SET: Lazy<Regex> =
@@ -980,6 +1124,15 @@ impl Rule for S5322IntentReceiving {
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
     }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A01BrokenAccessControl)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(925) // CWE-925: Improper Verification of Intent by Broadcast Receiver
+    }
+    fn debt_minutes(&self) -> u32 {
+        20
+    }
 
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         let mut issues = Vec::new();
@@ -1012,6 +1165,15 @@ impl Rule for S5324ExternalStorage {
     }
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
+    }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A01BrokenAccessControl)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(921) // CWE-921: Storage of Sensitive Data in a Mechanism without Access Control
+    }
+    fn debt_minutes(&self) -> u32 {
+        20
     }
 
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
@@ -1051,6 +1213,15 @@ impl Rule for S5527ServerCertificate {
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
     }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A02CryptographicFailures)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(295) // CWE-295: Improper Certificate Validation
+    }
+    fn debt_minutes(&self) -> u32 {
+        30
+    }
 
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         static TRUST_ALL: Lazy<Regex> = Lazy::new(|| {
@@ -1088,6 +1259,15 @@ impl Rule for S5542EncryptionAlgorithm {
     }
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
+    }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A02CryptographicFailures)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(327) // CWE-327: Use of a Broken or Risky Cryptographic Algorithm
+    }
+    fn debt_minutes(&self) -> u32 {
+        30
     }
 
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
@@ -1130,6 +1310,15 @@ impl Rule for S5547CipherBlockMode {
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
     }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A02CryptographicFailures)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(327) // CWE-327: Use of a Broken or Risky Cryptographic Algorithm
+    }
+    fn debt_minutes(&self) -> u32 {
+        30
+    }
 
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         static ECB_MODE: Lazy<Regex> = Lazy::new(|| {
@@ -1167,6 +1356,15 @@ impl Rule for S5659JwtSignature {
     }
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
+    }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A08SoftwareDataIntegrityFailures)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(347) // CWE-347: Improper Verification of Cryptographic Signature
+    }
+    fn debt_minutes(&self) -> u32 {
+        30
     }
 
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
@@ -1206,6 +1404,15 @@ impl Rule for S5689HttpResponseHeaders {
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
     }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A05SecurityMisconfiguration)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(200) // CWE-200: Information Exposure
+    }
+    fn debt_minutes(&self) -> u32 {
+        10
+    }
 
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         static SERVER_HEADER: Lazy<Regex> =
@@ -1243,6 +1450,15 @@ impl Rule for S5808AuthorizationCheck {
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
     }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A01BrokenAccessControl)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(862) // CWE-862: Missing Authorization
+    }
+    fn debt_minutes(&self) -> u32 {
+        30
+    }
 
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         static PERMIT_ALL: Lazy<Regex> =
@@ -1279,6 +1495,15 @@ impl Rule for S6096ZipSlip {
     }
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
+    }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A01BrokenAccessControl)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(22) // CWE-22: Path Traversal
+    }
+    fn debt_minutes(&self) -> u32 {
+        30
     }
 
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
@@ -1322,6 +1547,15 @@ impl Rule for S2091XPathInjection {
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
     }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A03Injection)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(643) // CWE-643: XPath Injection
+    }
+    fn debt_minutes(&self) -> u32 {
+        30
+    }
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         static XPATH: Lazy<Regex> = Lazy::new(|| Regex::new(r"\.evaluate\s*\([^)]*\+").unwrap());
         let mut issues = Vec::new();
@@ -1355,6 +1589,15 @@ impl Rule for S2115DatabasePassword {
     }
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
+    }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A07AuthenticationFailures)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(521) // CWE-521: Weak Password Requirements
+    }
+    fn debt_minutes(&self) -> u32 {
+        30
     }
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         static EMPTY_PASS: Lazy<Regex> =
@@ -1392,6 +1635,15 @@ impl Rule for S2277RsaPadding {
     }
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
+    }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A02CryptographicFailures)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(780) // CWE-780: Use of RSA Algorithm without OAEP
+    }
+    fn debt_minutes(&self) -> u32 {
+        30
     }
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         static WEAK_RSA: Lazy<Regex> = Lazy::new(|| {
@@ -1431,6 +1683,15 @@ impl Rule for S2278WeakDes {
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
     }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A02CryptographicFailures)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(327) // CWE-327: Use of a Broken or Risky Cryptographic Algorithm
+    }
+    fn debt_minutes(&self) -> u32 {
+        30
+    }
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         static DES_CIPHER: Lazy<Regex> =
             Lazy::new(|| Regex::new(r#"Cipher\.getInstance\s*\(\s*"(DES|DESede)"#).unwrap());
@@ -1466,6 +1727,15 @@ impl Rule for S2631RegexDos {
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
     }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A05SecurityMisconfiguration)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(1333) // CWE-1333: Inefficient Regular Expression Complexity
+    }
+    fn debt_minutes(&self) -> u32 {
+        30
+    }
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         static NESTED_QUANTIFIER: Lazy<Regex> =
             Lazy::new(|| Regex::new(r#"Pattern\.compile\s*\(\s*"[^"]*\([^)]*[+*]\)[+*]"#).unwrap());
@@ -1500,6 +1770,15 @@ impl Rule for S2647BasicAuth {
     }
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
+    }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A07AuthenticationFailures)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(522) // CWE-522: Insufficiently Protected Credentials
+    }
+    fn debt_minutes(&self) -> u32 {
+        30
     }
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         let mut issues = Vec::new();
@@ -1537,6 +1816,15 @@ impl Rule for S2658DynamicClassLoading {
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
     }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A03Injection)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(470) // CWE-470: Unsafe Reflection
+    }
+    fn debt_minutes(&self) -> u32 {
+        30
+    }
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         static CLASS_LOAD: Lazy<Regex> = Lazy::new(|| {
             Regex::new(r"Class\.forName\s*\([^)]*\+|\.loadClass\s*\([^)]*\+").unwrap()
@@ -1572,6 +1860,15 @@ impl Rule for S2755XxeVulnerability {
     }
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
+    }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A05SecurityMisconfiguration)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(611) // CWE-611: Improper Restriction of XXE
+    }
+    fn debt_minutes(&self) -> u32 {
+        30
     }
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         let mut issues = Vec::new();
@@ -1614,6 +1911,15 @@ impl Rule for S2976TempFileCreation {
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
     }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A05SecurityMisconfiguration)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(377) // CWE-377: Insecure Temporary File
+    }
+    fn debt_minutes(&self) -> u32 {
+        15
+    }
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         let mut issues = Vec::new();
         for (line_num, line) in ctx.source.lines().enumerate() {
@@ -1646,6 +1952,15 @@ impl Rule for S3330CookieDomain {
     }
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
+    }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A05SecurityMisconfiguration)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(1275) // CWE-1275: Sensitive Cookie with Improper SameSite Attribute
+    }
+    fn debt_minutes(&self) -> u32 {
+        10
     }
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         static COOKIE_DOMAIN: Lazy<Regex> =
@@ -1681,6 +1996,15 @@ impl Rule for S4423WeakSslProtocol {
     }
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
+    }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A02CryptographicFailures)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(326) // CWE-326: Inadequate Encryption Strength
+    }
+    fn debt_minutes(&self) -> u32 {
+        20
     }
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         static WEAK_SSL: Lazy<Regex> = Lazy::new(|| {
@@ -1718,6 +2042,15 @@ impl Rule for S4433LdapAuth {
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
     }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A07AuthenticationFailures)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(521) // CWE-521: Weak Password Requirements
+    }
+    fn debt_minutes(&self) -> u32 {
+        20
+    }
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         let mut issues = Vec::new();
         for (line_num, line) in ctx.source.lines().enumerate() {
@@ -1750,6 +2083,15 @@ impl Rule for S4434UncheckedDeserialize {
     }
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
+    }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A08SoftwareDataIntegrityFailures)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(502) // CWE-502: Deserialization of Untrusted Data
+    }
+    fn debt_minutes(&self) -> u32 {
+        45
     }
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         static DESERIALIZE: Lazy<Regex> =
@@ -1786,6 +2128,15 @@ impl Rule for S4507DebugFeatures {
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
     }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A05SecurityMisconfiguration)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(489) // CWE-489: Active Debug Code
+    }
+    fn debt_minutes(&self) -> u32 {
+        10
+    }
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         let mut issues = Vec::new();
         for (line_num, line) in ctx.source.lines().enumerate() {
@@ -1820,6 +2171,15 @@ impl Rule for S4684SpringEntity {
     }
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
+    }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A04InsecureDesign)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(915) // CWE-915: Improperly Controlled Modification of Dynamically-Determined Object Attributes
+    }
+    fn debt_minutes(&self) -> u32 {
+        30
     }
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         let mut issues = Vec::new();
@@ -1856,6 +2216,15 @@ impl Rule for S4818SocketUsage {
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
     }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A05SecurityMisconfiguration)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(319) // CWE-319: Cleartext Transmission of Sensitive Information
+    }
+    fn debt_minutes(&self) -> u32 {
+        20
+    }
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         static SOCKET: Lazy<Regex> =
             Lazy::new(|| Regex::new(r"new\s+(Socket|ServerSocket|DatagramSocket)\s*\(").unwrap());
@@ -1891,6 +2260,15 @@ impl Rule for S4823CommandLine {
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
     }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A03Injection)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(88) // CWE-88: Improper Neutralization of Argument Delimiters
+    }
+    fn debt_minutes(&self) -> u32 {
+        15
+    }
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         let mut issues = Vec::new();
         for (line_num, line) in ctx.source.lines().enumerate() {
@@ -1924,6 +2302,15 @@ impl Rule for S4829StdinUsage {
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
     }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A03Injection)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(20) // CWE-20: Improper Input Validation
+    }
+    fn debt_minutes(&self) -> u32 {
+        15
+    }
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         let mut issues = Vec::new();
         for (line_num, line) in ctx.source.lines().enumerate() {
@@ -1956,6 +2343,15 @@ impl Rule for S4830TrustManager {
     }
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
+    }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A02CryptographicFailures)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(295) // CWE-295: Improper Certificate Validation
+    }
+    fn debt_minutes(&self) -> u32 {
+        30
     }
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         let mut issues = Vec::new();
@@ -1992,6 +2388,15 @@ impl Rule for S4834PermissionCheck {
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
     }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A01BrokenAccessControl)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(862) // CWE-862: Missing Authorization
+    }
+    fn debt_minutes(&self) -> u32 {
+        30
+    }
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         let mut issues = Vec::new();
         for (line_num, line) in ctx.source.lines().enumerate() {
@@ -2024,6 +2429,15 @@ impl Rule for S5042ExpansionInjection {
     }
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
+    }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A05SecurityMisconfiguration)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(409) // CWE-409: Improper Handling of Highly Compressed Data (Zip Bomb)
+    }
+    fn debt_minutes(&self) -> u32 {
+        20
     }
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         let mut issues = Vec::new();
@@ -2066,6 +2480,15 @@ impl Rule for S5122CorsConfig {
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
     }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A05SecurityMisconfiguration)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(942) // CWE-942: Permissive Cross-domain Policy with Untrusted Domains
+    }
+    fn debt_minutes(&self) -> u32 {
+        15
+    }
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         static CORS_ALL: Lazy<Regex> = Lazy::new(|| {
             Regex::new(r#"addAllowedOrigin\s*\(\s*"\*"\s*\)|allowedOrigins\s*\(\s*"\*"\s*\)"#)
@@ -2102,6 +2525,15 @@ impl Rule for S5145LogInjection {
     }
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
+    }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A03Injection)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(117) // CWE-117: Improper Output Neutralization for Logs
+    }
+    fn debt_minutes(&self) -> u32 {
+        15
     }
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         static LOG_CONCAT: Lazy<Regex> = Lazy::new(|| {
@@ -2140,6 +2572,15 @@ impl Rule for S5167HttpRequestForward {
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
     }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A01BrokenAccessControl)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(601) // CWE-601: URL Redirection to Untrusted Site
+    }
+    fn debt_minutes(&self) -> u32 {
+        20
+    }
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         static FORWARD: Lazy<Regex> = Lazy::new(|| {
             Regex::new(r"\.forward\s*\([^)]*\+|getRequestDispatcher\s*\([^)]*\+").unwrap()
@@ -2175,6 +2616,15 @@ impl Rule for S5247SqlFormatter {
     }
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
+    }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A03Injection)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(89) // CWE-89: SQL Injection
+    }
+    fn debt_minutes(&self) -> u32 {
+        20
     }
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         static SQL_FORMAT: Lazy<Regex> = Lazy::new(|| {
@@ -2212,6 +2662,15 @@ impl Rule for S5261RegexCompile {
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
     }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A05SecurityMisconfiguration)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(1333) // CWE-1333: Inefficient Regular Expression Complexity
+    }
+    fn debt_minutes(&self) -> u32 {
+        10
+    }
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         static INLINE_REGEX: Lazy<Regex> = Lazy::new(|| {
             Regex::new(r#"\.matches\s*\(\s*"[^"]+"\s*\)|\.split\s*\(\s*"[^"]+"\s*\)"#).unwrap()
@@ -2247,6 +2706,15 @@ impl Rule for S5332ClearTextProtocol {
     }
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
+    }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A02CryptographicFailures)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(319) // CWE-319: Cleartext Transmission of Sensitive Information
+    }
+    fn debt_minutes(&self) -> u32 {
+        15
     }
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         static CLEAR_TEXT: Lazy<Regex> =
@@ -2285,6 +2753,15 @@ impl Rule for S5344PasswordHash {
     }
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
+    }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A02CryptographicFailures)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(916) // CWE-916: Use of Password Hash With Insufficient Computational Effort
+    }
+    fn debt_minutes(&self) -> u32 {
+        20
     }
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         let mut issues = Vec::new();
@@ -2330,6 +2807,15 @@ impl Rule for S5361RegexReplace {
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
     }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A05SecurityMisconfiguration)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(1333) // CWE-1333: Inefficient Regular Expression Complexity
+    }
+    fn debt_minutes(&self) -> u32 {
+        5
+    }
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         static REPLACE_ALL: Lazy<Regex> = Lazy::new(|| {
             Regex::new(r#"\.replaceAll\s*\(\s*"[^"]*[^\\][.+*?^$\[\]{}|()]"#).unwrap()
@@ -2365,6 +2851,15 @@ impl Rule for S5443FilePermissions {
     }
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
+    }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A01BrokenAccessControl)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(732) // CWE-732: Incorrect Permission Assignment for Critical Resource
+    }
+    fn debt_minutes(&self) -> u32 {
+        15
     }
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         let mut issues = Vec::new();
@@ -2402,6 +2897,15 @@ impl Rule for S5445InsecureTempFile {
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
     }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A05SecurityMisconfiguration)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(377) // CWE-377: Insecure Temporary File
+    }
+    fn debt_minutes(&self) -> u32 {
+        15
+    }
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         let mut issues = Vec::new();
         for (line_num, line) in ctx.source.lines().enumerate() {
@@ -2434,6 +2938,15 @@ impl Rule for S5852RegexComplexity {
     }
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
+    }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A05SecurityMisconfiguration)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(1333) // CWE-1333: Inefficient Regular Expression Complexity (ReDoS)
+    }
+    fn debt_minutes(&self) -> u32 {
+        15
     }
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         static COMPLEX_REGEX: Lazy<Regex> =
@@ -2470,6 +2983,15 @@ impl Rule for S5869CharacterClassRedundancy {
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
     }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A05SecurityMisconfiguration)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(1333) // CWE-1333: Inefficient Regular Expression Complexity
+    }
+    fn debt_minutes(&self) -> u32 {
+        5
+    }
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         let mut issues = Vec::new();
         for (line_num, line) in ctx.source.lines().enumerate() {
@@ -2502,6 +3024,15 @@ impl Rule for S6287RegexReplace2 {
     }
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
+    }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A05SecurityMisconfiguration)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(1333) // CWE-1333: Inefficient Regular Expression Complexity (ReDoS)
+    }
+    fn debt_minutes(&self) -> u32 {
+        20
     }
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         let mut issues = Vec::new();
@@ -2538,6 +3069,15 @@ impl Rule for S6293RegexComplex {
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
     }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A05SecurityMisconfiguration)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(1333) // CWE-1333: Inefficient Regular Expression Complexity (ReDoS)
+    }
+    fn debt_minutes(&self) -> u32 {
+        15
+    }
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         let mut issues = Vec::new();
         for (line_num, line) in ctx.source.lines().enumerate() {
@@ -2573,6 +3113,15 @@ impl Rule for S6362FileWrites {
     fn category(&self) -> RuleCategory {
         RuleCategory::Security
     }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        Some(OwaspCategory::A01BrokenAccessControl)
+    }
+    fn cwe(&self) -> Option<u32> {
+        Some(22) // CWE-22: Path Traversal
+    }
+    fn debt_minutes(&self) -> u32 {
+        15
+    }
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
         let mut issues = Vec::new();
         for (line_num, line) in ctx.source.lines().enumerate() {
@@ -2595,45 +3144,7 @@ impl Rule for S6362FileWrites {
 // Batch 5 - Additional security rules
 // ============================================================================
 
-macro_rules! security_rule {
-    ($struct_name:ident, $id:expr, $title:expr, $severity:expr, $pattern:expr, $message:expr) => {
-        pub struct $struct_name;
-        impl Rule for $struct_name {
-            fn id(&self) -> &str {
-                $id
-            }
-            fn title(&self) -> &str {
-                $title
-            }
-            fn severity(&self) -> Severity {
-                $severity
-            }
-            fn category(&self) -> RuleCategory {
-                RuleCategory::Security
-            }
-            fn check(&self, ctx: &AnalysisContext) -> Vec<Issue> {
-                static RE: Lazy<Regex> = Lazy::new(|| Regex::new($pattern).unwrap());
-                let mut issues = Vec::new();
-                for (line_num, line) in ctx.source.lines().enumerate() {
-                    if RE.is_match(line) && !line.trim().starts_with("//") {
-                        issues.push(create_issue(
-                            self,
-                            ctx.file_path,
-                            line_num + 1,
-                            1,
-                            $message.to_string(),
-                            Some(line.trim().to_string()),
-                        ));
-                    }
-                }
-                issues
-            }
-        }
-    };
-}
-
-/// Extended security rule macro with OWASP/CWE mapping and debt estimation
-#[allow(unused_macros)]
+/// Security rule macro with OWASP/CWE mapping and debt estimation
 macro_rules! security_rule_mapped {
     ($struct_name:ident, $id:expr, $title:expr, $severity:expr, $pattern:expr, $message:expr,
      owasp: $owasp:expr, cwe: $cwe:expr, debt: $debt:expr) => {
@@ -2682,423 +3193,549 @@ macro_rules! security_rule_mapped {
 }
 
 // S2069: Unsafe password configuration
-security_rule!(
+security_rule_mapped!(
     S2069UnsafePassword,
     "S2069",
     "Password settings are insecure",
     Severity::Critical,
     r"(?i)setPassword\s*\(\s*null|password\.isEmpty",
-    "Passwords should not be empty or null."
+    "Passwords should not be empty or null.",
+    owasp: OwaspCategory::A07AuthenticationFailures,
+    cwe: 521,
+    debt: 15
 );
 
 // S2070: Weak hash function used
-security_rule!(
+security_rule_mapped!(
     S2070WeakHash,
     "S2070",
     "Weak hash function detected",
     Severity::Critical,
     r#"(?i)MessageDigest\.getInstance\s*\(\s*"(?:MD2|MD4)""#,
-    "Use SHA-256 or stronger hash functions."
+    "Use SHA-256 or stronger hash functions.",
+    owasp: OwaspCategory::A02CryptographicFailures,
+    cwe: 328,
+    debt: 15
 );
 
 // S2071: Insecure session management
-security_rule!(
+security_rule_mapped!(
     S2071InsecureSession,
     "S2071",
     "Insecure session management",
     Severity::Major,
     r"(?i)session\.setAttribute\s*\(\s*.*(?:password|secret|key)",
-    "Sensitive data should not be stored in session."
+    "Sensitive data should not be stored in session.",
+    owasp: OwaspCategory::A07AuthenticationFailures,
+    cwe: 384,
+    debt: 20
 );
 
 // S2072: Sensitive data exposure
-security_rule!(
+security_rule_mapped!(
     S2072DataExposure,
     "S2072",
     "Sensitive data may be exposed",
     Severity::Major,
     r"(?i)response\.getWriter\(\)\.print\s*\(.*(?:password|secret)",
-    "Sensitive data should not be written to response."
+    "Sensitive data should not be written to response.",
+    owasp: OwaspCategory::A02CryptographicFailures,
+    cwe: 200,
+    debt: 15
 );
 
 // S2073: Insecure file operation
-security_rule!(
+security_rule_mapped!(
     S2073InsecureFileOp,
     "S2073",
     "Insecure file operation",
     Severity::Major,
     r"new\s+File\s*\([^)]*\+[^)]*(?:request|param)",
-    "Validate file paths from user input."
+    "Validate file paths from user input.",
+    owasp: OwaspCategory::A01BrokenAccessControl,
+    cwe: 22,
+    debt: 20
 );
 
 // S2074: Insecure redirect
-security_rule!(
+security_rule_mapped!(
     S2074InsecureRedirect,
     "S2074",
     "Insecure redirect",
     Severity::Major,
     r"(?i)response\.sendRedirect\s*\([^)]*(?:request|param)",
-    "Validate redirect URLs to prevent open redirect."
+    "Validate redirect URLs to prevent open redirect.",
+    owasp: OwaspCategory::A01BrokenAccessControl,
+    cwe: 601,
+    debt: 15
 );
 
 // S2075: Insecure URL construction
-security_rule!(
+security_rule_mapped!(
     S2075InsecureUrl,
     "S2075",
     "Insecure URL construction",
     Severity::Major,
     r"new\s+URL\s*\([^)]*\+[^)]*(?:request|param)",
-    "Validate URLs constructed from user input."
+    "Validate URLs constructed from user input.",
+    owasp: OwaspCategory::A10ServerSideRequestForgery,
+    cwe: 918,
+    debt: 20
 );
 
 // S2077: SQL query construction
-security_rule!(
+security_rule_mapped!(
     S2077SqlQuery,
     "S2077",
     "SQL query constructed from input",
     Severity::Critical,
     r"(?i)(?:createStatement|executeQuery)\s*\([^)]*\+",
-    "Use prepared statements instead of string concatenation."
+    "Use prepared statements instead of string concatenation.",
+    owasp: OwaspCategory::A03Injection,
+    cwe: 89,
+    debt: 30
 );
 
 // S2079: Cross-site scripting
-security_rule!(
+security_rule_mapped!(
     S2079Xss,
     "S2079",
     "Potential cross-site scripting",
     Severity::Critical,
     r"(?i)out\.print\s*\([^)]*(?:request\.getParameter|param)",
-    "Escape output to prevent XSS attacks."
+    "Escape output to prevent XSS attacks.",
+    owasp: OwaspCategory::A03Injection,
+    cwe: 79,
+    debt: 20
 );
 
 // S2080: Insecure XML processing
-security_rule!(
+security_rule_mapped!(
     S2080InsecureXml,
     "S2080",
     "Insecure XML processing",
     Severity::Critical,
     r"DocumentBuilderFactory\.newInstance\s*\(\s*\)",
-    "Disable external entities in XML parsing."
+    "Disable external entities in XML parsing.",
+    owasp: OwaspCategory::A05SecurityMisconfiguration,
+    cwe: 611,
+    debt: 20
 );
 
 // S2081: Insecure deserialization config
-security_rule!(
+security_rule_mapped!(
     S2081InsecureDeserial,
     "S2081",
     "Insecure deserialization configuration",
     Severity::Critical,
     r"ObjectInputStream\s*\([^)]+\)",
-    "Validate objects during deserialization."
+    "Validate objects during deserialization.",
+    owasp: OwaspCategory::A08SoftwareDataIntegrityFailures,
+    cwe: 502,
+    debt: 30
 );
 
 // S2082: Insecure CORS configuration
-security_rule!(
+security_rule_mapped!(
     S2082InsecureCors,
     "S2082",
     "Insecure CORS configuration",
     Severity::Major,
     r#"(?i)addHeader\s*\(\s*"Access-Control-Allow-Origin"\s*,\s*"\*""#,
-    "Restrict CORS origin to trusted domains."
+    "Restrict CORS origin to trusted domains.",
+    owasp: OwaspCategory::A05SecurityMisconfiguration,
+    cwe: 942,
+    debt: 15
 );
 
 // S2084: Insecure content type
-security_rule!(
+security_rule_mapped!(
     S2084InsecureContent,
     "S2084",
     "Insecure content type handling",
     Severity::Major,
     r"(?i)setContentType\s*\(.*request",
-    "Validate content before setting content type."
+    "Validate content before setting content type.",
+    owasp: OwaspCategory::A03Injection,
+    cwe: 79,
+    debt: 15
 );
 
 // S2085: Insecure cookie attribute
-security_rule!(
+security_rule_mapped!(
     S2085InsecureCookie,
     "S2085",
     "Insecure cookie attributes",
     Severity::Major,
     r"new\s+Cookie\s*\([^)]+\)",
-    "Set HttpOnly and Secure flags on cookies."
+    "Set HttpOnly and Secure flags on cookies.",
+    owasp: OwaspCategory::A05SecurityMisconfiguration,
+    cwe: 614,
+    debt: 10
 );
 
 // S2086: Insecure authentication
-security_rule!(
+security_rule_mapped!(
     S2086InsecureAuth,
     "S2086",
     "Insecure authentication",
     Severity::Critical,
     r"(?i)(?:password|credential)\.equals\s*\(",
-    "Use constant-time comparison for credentials."
+    "Use constant-time comparison for credentials.",
+    owasp: OwaspCategory::A07AuthenticationFailures,
+    cwe: 208,
+    debt: 15
 );
 
 // S2087: Insecure random number
-security_rule!(
+security_rule_mapped!(
     S2087InsecureRandom,
     "S2087",
     "Insecure random number",
     Severity::Critical,
     r"new\s+Random\s*\(\s*System\.currentTimeMillis",
-    "Use SecureRandom with proper seeding."
+    "Use SecureRandom with proper seeding.",
+    owasp: OwaspCategory::A02CryptographicFailures,
+    cwe: 330,
+    debt: 15
 );
 
 // S2088: Hardcoded crypto key
-security_rule!(
+security_rule_mapped!(
     S2088HardcodedKey,
     "S2088",
     "Hardcoded cryptographic key",
     Severity::Blocker,
     r"(?i)SecretKeySpec\s*\(\s*[^)]*getBytes",
-    "Cryptographic keys should not be hardcoded."
+    "Cryptographic keys should not be hardcoded.",
+    owasp: OwaspCategory::A02CryptographicFailures,
+    cwe: 321,
+    debt: 30
 );
 
 // S2090: Weak SSL/TLS version
-security_rule!(
+security_rule_mapped!(
     S2090WeakTls,
     "S2090",
     "Weak SSL/TLS version",
     Severity::Critical,
     r#"(?i)SSLContext\.getInstance\s*\(\s*"(?:SSL|TLSv1\.0)""#,
-    "Use TLSv1.2 or TLSv1.3."
+    "Use TLSv1.2 or TLSv1.3.",
+    owasp: OwaspCategory::A02CryptographicFailures,
+    cwe: 326,
+    debt: 20
 );
 
 // S2093: Insecure file upload
-security_rule!(
+security_rule_mapped!(
     S2093InsecureUpload,
     "S2093",
     "Insecure file upload",
     Severity::Critical,
     r"(?i)getSubmittedFileName\s*\(\s*\)",
-    "Validate file names and content types for uploads."
+    "Validate file names and content types for uploads.",
+    owasp: OwaspCategory::A03Injection,
+    cwe: 434,
+    debt: 20
 );
 
 // S2098: Insecure keystore
-security_rule!(
+security_rule_mapped!(
     S2098InsecureKeystore,
     "S2098",
     "Insecure keystore configuration",
     Severity::Critical,
     r#"KeyStore\.getInstance\s*\(\s*"JKS""#,
-    "Use PKCS12 instead of JKS for keystores."
+    "Use PKCS12 instead of JKS for keystores.",
+    owasp: OwaspCategory::A02CryptographicFailures,
+    cwe: 327,
+    debt: 15
 );
 
 // S2099: Weak cipher suite
-security_rule!(
+security_rule_mapped!(
     S2099WeakCipher,
     "S2099",
     "Weak cipher suite",
     Severity::Critical,
     r"(?i)setEnabledCipherSuites\s*\([^)]*(?:RC4|DES|NULL|EXPORT)",
-    "Disable weak cipher suites."
+    "Disable weak cipher suites.",
+    owasp: OwaspCategory::A02CryptographicFailures,
+    cwe: 327,
+    debt: 20
 );
 
 // S2100: Insecure trust manager
-security_rule!(
+security_rule_mapped!(
     S2100InsecureTrust,
     "S2100",
     "Insecure trust manager",
     Severity::Blocker,
     r"TrustManager\s*\[\s*\].*new\s+X509TrustManager",
-    "Do not disable certificate validation."
+    "Do not disable certificate validation.",
+    owasp: OwaspCategory::A02CryptographicFailures,
+    cwe: 295,
+    debt: 30
 );
 
 // S2101: Debug logging sensitive data
-security_rule!(
+security_rule_mapped!(
     S2101DebugSensitive,
     "S2101",
     "Debug logging may expose sensitive data",
     Severity::Major,
     r"(?i)(?:debug|trace)\s*\([^)]*(?:password|secret|key|token)",
-    "Remove sensitive data from debug logs."
+    "Remove sensitive data from debug logs.",
+    owasp: OwaspCategory::A09SecurityLoggingFailures,
+    cwe: 532,
+    debt: 10
 );
 
 // S2102: Insecure temporary directory
-security_rule!(
+security_rule_mapped!(
     S2102InsecureTmpDir,
     "S2102",
     "Insecure temporary directory",
     Severity::Major,
     r#"(?i)System\.getProperty\s*\(\s*"java\.io\.tmpdir""#,
-    "Temp directories may be world-readable."
+    "Temp directories may be world-readable.",
+    owasp: OwaspCategory::A01BrokenAccessControl,
+    cwe: 377,
+    debt: 15
 );
 
 // S2103: Insecure permission grant
-security_rule!(
+security_rule_mapped!(
     S2103InsecurePerm,
     "S2103",
     "Insecure permission grant",
     Severity::Critical,
     r"AccessController\.doPrivileged",
-    "Review privileged code carefully."
+    "Review privileged code carefully.",
+    owasp: OwaspCategory::A01BrokenAccessControl,
+    cwe: 250,
+    debt: 30
 );
 
 // S2104: Insecure reflection
-security_rule!(
+security_rule_mapped!(
     S2104InsecureReflect,
     "S2104",
     "Insecure reflection",
     Severity::Critical,
     r"setAccessible\s*\(\s*true\s*\)",
-    "Reflection bypasses access control."
+    "Reflection bypasses access control.",
+    owasp: OwaspCategory::A01BrokenAccessControl,
+    cwe: 470,
+    debt: 20
 );
 
 // S2105: Insecure native call
-security_rule!(
+security_rule_mapped!(
     S2105InsecureNative,
     "S2105",
     "Insecure native call",
     Severity::Critical,
     r"System\.loadLibrary\s*\([^)]*\+",
-    "Validate library names loaded from user input."
+    "Validate library names loaded from user input.",
+    owasp: OwaspCategory::A03Injection,
+    cwe: 427,
+    debt: 25
 );
 
 // S2106: Insecure system property
-security_rule!(
+security_rule_mapped!(
     S2106InsecureSysProp,
     "S2106",
     "Insecure system property",
     Severity::Major,
     r"System\.setProperty\s*\([^)]*(?:request|param)",
-    "Validate system property names and values."
+    "Validate system property names and values.",
+    owasp: OwaspCategory::A03Injection,
+    cwe: 20,
+    debt: 15
 );
 
 // S2108: Insecure regex
-security_rule!(
+security_rule_mapped!(
     S2108InsecureRegex,
     "S2108",
     "Insecure regex pattern",
     Severity::Major,
     r"Pattern\.compile\s*\([^)]*\+[^)]*(?:request|param)",
-    "Validate regex patterns from user input."
+    "Validate regex patterns from user input.",
+    owasp: OwaspCategory::A03Injection,
+    cwe: 1333,
+    debt: 15
 );
 
 // S2112: Insecure object creation
-security_rule!(
+security_rule_mapped!(
     S2112InsecureObject,
     "S2112",
     "Insecure object creation",
     Severity::Critical,
     r"Class\.forName\s*\([^)]*\+[^)]*(?:request|param)",
-    "Validate class names from user input."
+    "Validate class names from user input.",
+    owasp: OwaspCategory::A03Injection,
+    cwe: 470,
+    debt: 25
 );
 
 // S2113: Insecure bean injection
-security_rule!(
+security_rule_mapped!(
     S2113InsecureBean,
     "S2113",
     "Insecure bean injection",
     Severity::Critical,
     r"(?i)@Value\s*\(\s*.*\$\{[^}]*(?:password|secret)",
-    "Externalize sensitive configuration securely."
+    "Externalize sensitive configuration securely.",
+    owasp: OwaspCategory::A05SecurityMisconfiguration,
+    cwe: 200,
+    debt: 20
 );
 
 // S2117: Insecure entropy source
-security_rule!(
+security_rule_mapped!(
     S2117InsecureEntropy,
     "S2117",
     "Insecure entropy source",
     Severity::Critical,
     r"new\s+SecureRandom\s*\(\s*\)\.setSeed",
-    "Let SecureRandom seed itself."
+    "Let SecureRandom seed itself.",
+    owasp: OwaspCategory::A02CryptographicFailures,
+    cwe: 335,
+    debt: 15
 );
 
 // S2124: Insecure XML binding
-security_rule!(
+security_rule_mapped!(
     S2124InsecureXmlBind,
     "S2124",
     "Insecure XML binding",
     Severity::Critical,
     r"JAXBContext\.newInstance\s*\([^)]*Class\.forName",
-    "Validate class names for XML binding."
+    "Validate class names for XML binding.",
+    owasp: OwaspCategory::A08SoftwareDataIntegrityFailures,
+    cwe: 502,
+    debt: 25
 );
 
 // S2125: Insecure JSON binding
-security_rule!(
+security_rule_mapped!(
     S2125InsecureJson,
     "S2125",
     "Insecure JSON binding",
     Severity::Critical,
     r"(?i)objectMapper\.enableDefaultTyping\s*\(",
-    "Disable default typing in Jackson."
+    "Disable default typing in Jackson.",
+    owasp: OwaspCategory::A08SoftwareDataIntegrityFailures,
+    cwe: 502,
+    debt: 25
 );
 
 // S2126: Insecure YAML parsing
-security_rule!(
+security_rule_mapped!(
     S2126InsecureYaml,
     "S2126",
     "Insecure YAML parsing",
     Severity::Critical,
     r"new\s+Yaml\s*\(\s*\)",
-    "Use SafeConstructor with YAML parsing."
+    "Use SafeConstructor with YAML parsing.",
+    owasp: OwaspCategory::A08SoftwareDataIntegrityFailures,
+    cwe: 502,
+    debt: 20
 );
 
 // S2132: Insecure permission model
-security_rule!(
+security_rule_mapped!(
     S2132InsecurePerm,
     "S2132",
     "Insecure permission model",
     Severity::Critical,
     r"AllPermission",
-    "Avoid granting AllPermission."
+    "Avoid granting AllPermission.",
+    owasp: OwaspCategory::A01BrokenAccessControl,
+    cwe: 250,
+    debt: 25
 );
 
 // S2135: Insecure SSL socket
-security_rule!(
+security_rule_mapped!(
     S2135InsecureSsl,
     "S2135",
     "Insecure SSL socket factory",
     Severity::Critical,
     r"SSLSocketFactory\.getDefault\s*\(\s*\)",
-    "Configure SSLContext with secure parameters."
+    "Configure SSLContext with secure parameters.",
+    owasp: OwaspCategory::A02CryptographicFailures,
+    cwe: 327,
+    debt: 20
 );
 
 // S2136: Insecure hostname verifier
-security_rule!(
+security_rule_mapped!(
     S2136InsecureHostname,
     "S2136",
     "Insecure hostname verifier",
     Severity::Blocker,
     r"HostnameVerifier.*return\s+true",
-    "Do not disable hostname verification."
+    "Do not disable hostname verification.",
+    owasp: OwaspCategory::A02CryptographicFailures,
+    cwe: 295,
+    debt: 30
 );
 
 // S2137: Insecure key generation
-security_rule!(
+security_rule_mapped!(
     S2137InsecureKeyGen,
     "S2137",
     "Insecure key generation",
     Severity::Critical,
     r"KeyPairGenerator\.getInstance\s*\([^)]+\)\.initialize\s*\(\s*(?:512|768|1024)\s*\)",
-    "Use at least 2048-bit keys for RSA."
+    "Use at least 2048-bit keys for RSA.",
+    owasp: OwaspCategory::A02CryptographicFailures,
+    cwe: 326,
+    debt: 15
 );
 
 // S2138: Insecure certificate handling
-security_rule!(
+security_rule_mapped!(
     S2138InsecureCert,
     "S2138",
     "Insecure certificate handling",
     Severity::Critical,
     r"checkValidity\s*\(\s*\)",
-    "Verify certificate extensions and chain."
+    "Verify certificate extensions and chain.",
+    owasp: OwaspCategory::A02CryptographicFailures,
+    cwe: 295,
+    debt: 20
 );
 
 // S2139: Insecure encryption mode
-security_rule!(
+security_rule_mapped!(
     S2139InsecureEncMode,
     "S2139",
     "Insecure encryption mode",
     Severity::Critical,
     r#"Cipher\.getInstance\s*\(\s*"[^"]*ECB[^"]*""#,
-    "Use CBC or GCM instead of ECB mode."
+    "Use CBC or GCM instead of ECB mode.",
+    owasp: OwaspCategory::A02CryptographicFailures,
+    cwe: 327,
+    debt: 20
 );
 
 // S2140: Insecure IV usage
-security_rule!(
+security_rule_mapped!(
     S2140InsecureIv,
     "S2140",
     "Insecure IV usage",
     Severity::Critical,
     r"IvParameterSpec\s*\(\s*new\s+byte\[",
-    "Use random IV for each encryption."
+    "Use random IV for each encryption.",
+    owasp: OwaspCategory::A02CryptographicFailures,
+    cwe: 329,
+    debt: 15
 );
 
 // ============================================================================
@@ -3106,303 +3743,393 @@ security_rule!(
 // ============================================================================
 
 // S2141B: Insecure MAC algorithm
-security_rule!(
+security_rule_mapped!(
     S2141InsecureMac,
     "S2141B",
     "Insecure MAC algorithm",
     Severity::Critical,
     r#"Mac\.getInstance\s*\(\s*"(?:HmacMD5|HmacSHA1)""#,
-    "Use HMAC-SHA256 or stronger."
+    "Use HMAC-SHA256 or stronger.",
+    owasp: OwaspCategory::A02CryptographicFailures,
+    cwe: 328,
+    debt: 15
 );
 
 // S2142B: Insecure signature algorithm
-security_rule!(
+security_rule_mapped!(
     S2142InsecureSig,
     "S2142B",
     "Insecure signature algorithm",
     Severity::Critical,
     r#"Signature\.getInstance\s*\(\s*"(?:MD5|SHA1)withRSA""#,
-    "Use SHA256withRSA or stronger."
+    "Use SHA256withRSA or stronger.",
+    owasp: OwaspCategory::A02CryptographicFailures,
+    cwe: 327,
+    debt: 15
 );
 
 // S2143B: Insecure key agreement
-security_rule!(
+security_rule_mapped!(
     S2143InsecureKeyAgree,
     "S2143B",
     "Insecure key agreement",
     Severity::Critical,
     r"KeyAgreement\.getInstance\s*\([^)]*DH[^)]*\)",
-    "Use ECDH with strong curves."
+    "Use ECDH with strong curves.",
+    owasp: OwaspCategory::A02CryptographicFailures,
+    cwe: 327,
+    debt: 20
 );
 
 // S2144B: Hardcoded password in connection string
-security_rule!(
+security_rule_mapped!(
     S2144HardcodedConnPwd,
     "S2144B",
     "Hardcoded password in connection",
     Severity::Blocker,
     r#"(?i)jdbc:[^"]*password=[^"&]+"#,
-    "Use secure credential storage."
+    "Use secure credential storage.",
+    owasp: OwaspCategory::A07AuthenticationFailures,
+    cwe: 798,
+    debt: 30
 );
 
 // S2145: Insecure protocol version
-security_rule!(
+security_rule_mapped!(
     S2145InsecureProtocol,
     "S2145",
     "Insecure protocol version",
     Severity::Critical,
     r#"(?i)setProtocol\s*\(\s*"(?:SSLv2|SSLv3|TLSv1\.0)""#,
-    "Use TLSv1.2 or higher."
+    "Use TLSv1.2 or higher.",
+    owasp: OwaspCategory::A02CryptographicFailures,
+    cwe: 326,
+    debt: 15
 );
 
 // S2146: Missing input validation
-security_rule!(
+security_rule_mapped!(
     S2146MissingValidation,
     "S2146",
     "Missing input validation",
     Severity::Major,
     r"getParameter\s*\([^)]+\)",
-    "Validate user input before use."
+    "Validate user input before use.",
+    owasp: OwaspCategory::A03Injection,
+    cwe: 20,
+    debt: 15
 );
 
 // S2147: Insecure redirect
-security_rule!(
+security_rule_mapped!(
     S2147InsecureRedirect,
     "S2147",
     "Insecure redirect",
     Severity::Critical,
     r"sendRedirect\s*\([^)]*(?:request|param)",
-    "Validate redirect URLs."
+    "Validate redirect URLs.",
+    owasp: OwaspCategory::A01BrokenAccessControl,
+    cwe: 601,
+    debt: 15
 );
 
 // S2148: Insecure email header
-security_rule!(
+security_rule_mapped!(
     S2148InsecureEmail,
     "S2148",
     "Insecure email header injection",
     Severity::Critical,
     r"(?i)addHeader\s*\([^)]*(?:request|param)",
-    "Sanitize email headers."
+    "Sanitize email headers.",
+    owasp: OwaspCategory::A03Injection,
+    cwe: 93,
+    debt: 15
 );
 
 // S2149: Insecure LDAP authentication
-security_rule!(
+security_rule_mapped!(
     S2149InsecureLdapAuth,
     "S2149",
     "Insecure LDAP authentication",
     Severity::Critical,
     r#"put\s*\(\s*Context\.SECURITY_AUTHENTICATION\s*,\s*"none""#,
-    "Use authenticated LDAP binding."
+    "Use authenticated LDAP binding.",
+    owasp: OwaspCategory::A07AuthenticationFailures,
+    cwe: 287,
+    debt: 20
 );
 
 // S2150B: Insecure object storage
-security_rule!(
+security_rule_mapped!(
     S2150InsecureStorage,
     "S2150B",
     "Insecure object storage",
     Severity::Major,
     r"ObjectOutputStream\s*\([^)]+\)",
-    "Consider encrypting serialized data."
+    "Consider encrypting serialized data.",
+    owasp: OwaspCategory::A02CryptographicFailures,
+    cwe: 311,
+    debt: 20
 );
 
 // S2151B: Missing null check on authentication
-security_rule!(
+security_rule_mapped!(
     S2151NullAuth,
     "S2151B",
     "Missing null check on authentication",
     Severity::Critical,
     r"getRemoteUser\s*\(\s*\)",
-    "Check for null authentication."
+    "Check for null authentication.",
+    owasp: OwaspCategory::A07AuthenticationFailures,
+    cwe: 476,
+    debt: 10
 );
 
 // S2152: Missing access control
-security_rule!(
+security_rule_mapped!(
     S2152MissingAccess,
     "S2152",
     "Missing access control",
     Severity::Critical,
     r"@RequestMapping\s*\(",
-    "Add access control to endpoints."
+    "Add access control to endpoints.",
+    owasp: OwaspCategory::A01BrokenAccessControl,
+    cwe: 862,
+    debt: 20
 );
 
 // S2153B: Missing HTTPS enforcement
-security_rule!(
+security_rule_mapped!(
     S2153HttpsEnforce,
     "S2153B",
     "Missing HTTPS enforcement",
     Severity::Major,
     r#"http://[a-zA-Z][^"]*api"#,
-    "Use HTTPS for API calls."
+    "Use HTTPS for API calls.",
+    owasp: OwaspCategory::A02CryptographicFailures,
+    cwe: 319,
+    debt: 10
 );
 
 // S2154B: Weak session configuration
-security_rule!(
+security_rule_mapped!(
     S2154WeakSession,
     "S2154B",
     "Weak session configuration",
     Severity::Major,
     r"setMaxInactiveInterval\s*\(\s*-1\s*\)",
-    "Set session timeout."
+    "Set session timeout.",
+    owasp: OwaspCategory::A07AuthenticationFailures,
+    cwe: 613,
+    debt: 10
 );
 
 // S2155: Missing CSRF token
-security_rule!(
+security_rule_mapped!(
     S2155MissingCsrf,
     "S2155",
     "Missing CSRF token validation",
     Severity::Critical,
     r"@PostMapping\s*\(",
-    "Validate CSRF tokens on POST."
+    "Validate CSRF tokens on POST.",
+    owasp: OwaspCategory::A01BrokenAccessControl,
+    cwe: 352,
+    debt: 20
 );
 
 // S2156: Insecure JWT configuration
-security_rule!(
+security_rule_mapped!(
     S2156InsecureJwt,
     "S2156",
     "Insecure JWT configuration",
     Severity::Critical,
     r#"JWT(?:\.create|Parser)[^}]*"none""#,
-    "Always sign JWT tokens."
+    "Always sign JWT tokens.",
+    owasp: OwaspCategory::A08SoftwareDataIntegrityFailures,
+    cwe: 347,
+    debt: 20
 );
 
 // S2157: Missing security headers
-security_rule!(
+security_rule_mapped!(
     S2157MissingHeaders,
     "S2157",
     "Missing security headers",
     Severity::Major,
     r"@Controller\s+class",
-    "Add security headers."
+    "Add security headers.",
+    owasp: OwaspCategory::A05SecurityMisconfiguration,
+    cwe: 693,
+    debt: 15
 );
 
 // S2158: Insecure direct object reference
-security_rule!(
+security_rule_mapped!(
     S2158InsecureIdor,
     "S2158",
     "Insecure direct object reference",
     Severity::Critical,
     r"@PathVariable\s*\(\s*.*id.*\)",
-    "Verify user access to resource."
+    "Verify user access to resource.",
+    owasp: OwaspCategory::A01BrokenAccessControl,
+    cwe: 639,
+    debt: 20
 );
 
 // S2159B: Missing encryption
-security_rule!(
+security_rule_mapped!(
     S2159MissingEncrypt,
     "S2159B",
     "Missing encryption",
     Severity::Critical,
     r"(?i)(?:ssn|creditcard|cardnumber)\s*=\s*[^;]*;",
-    "Encrypt sensitive data."
+    "Encrypt sensitive data.",
+    owasp: OwaspCategory::A02CryptographicFailures,
+    cwe: 311,
+    debt: 30
 );
 
 // S2160B: Insecure admin endpoint
-security_rule!(
+security_rule_mapped!(
     S2160InsecureAdmin,
     "S2160B",
     "Insecure admin endpoint",
     Severity::Critical,
     r#"(?i)@RequestMapping\s*\(\s*.*admin.*\)"#,
-    "Secure admin endpoints."
+    "Secure admin endpoints.",
+    owasp: OwaspCategory::A01BrokenAccessControl,
+    cwe: 862,
+    debt: 25
 );
 
 // S2161: Missing rate limiting
-security_rule!(
+security_rule_mapped!(
     S2161MissingRateLimit,
     "S2161",
     "Missing rate limiting",
     Severity::Major,
     r"@PostMapping\s*\(",
-    "Add rate limiting to endpoints."
+    "Add rate limiting to endpoints.",
+    owasp: OwaspCategory::A05SecurityMisconfiguration,
+    cwe: 770,
+    debt: 20
 );
 
 // S2162B: Insecure API key handling
-security_rule!(
+security_rule_mapped!(
     S2162InsecureApiKey,
     "S2162B",
     "Insecure API key handling",
     Severity::Critical,
     r#"(?i)api[_-]?key\s*=\s*"[^"]+""#,
-    "Use environment variables for API keys."
+    "Use environment variables for API keys.",
+    owasp: OwaspCategory::A07AuthenticationFailures,
+    cwe: 798,
+    debt: 20
 );
 
 // S2163: Missing audit logging
-security_rule!(
+security_rule_mapped!(
     S2163MissingAudit,
     "S2163",
     "Missing audit logging",
     Severity::Major,
     r"(?i)executeUpdate\s*\([^)]*(?:delete|update|insert)",
-    "Add audit logging for data changes."
+    "Add audit logging for data changes.",
+    owasp: OwaspCategory::A09SecurityLoggingFailures,
+    cwe: 778,
+    debt: 20
 );
 
 // S2164B: Insecure file download
-security_rule!(
+security_rule_mapped!(
     S2164InsecureDownload,
     "S2164B",
     "Insecure file download",
     Severity::Critical,
     r"setHeader\s*\([^)]*Content-Disposition[^)]*\+",
-    "Sanitize filename in downloads."
+    "Sanitize filename in downloads.",
+    owasp: OwaspCategory::A01BrokenAccessControl,
+    cwe: 22,
+    debt: 15
 );
 
 // S2165: Missing authentication
-security_rule!(
+security_rule_mapped!(
     S2165MissingAuth,
     "S2165",
     "Missing authentication",
     Severity::Critical,
     r"@RestController\s+class",
-    "Add authentication to REST controller."
+    "Add authentication to REST controller.",
+    owasp: OwaspCategory::A07AuthenticationFailures,
+    cwe: 306,
+    debt: 30
 );
 
 // S2166B: Insecure default password
-security_rule!(
+security_rule_mapped!(
     S2166InsecureDefault,
     "S2166B",
     "Insecure default password",
     Severity::Blocker,
     r#"(?i)default[_-]?password\s*=\s*"[^"]+""#,
-    "Remove default passwords."
+    "Remove default passwords.",
+    owasp: OwaspCategory::A07AuthenticationFailures,
+    cwe: 798,
+    debt: 15
 );
 
 // S2167B: Missing input length check
-security_rule!(
+security_rule_mapped!(
     S2167MissingLength,
     "S2167B",
     "Missing input length check",
     Severity::Major,
     r"getParameter\s*\([^)]+\)\.",
-    "Check input length to prevent DoS."
+    "Check input length to prevent DoS.",
+    owasp: OwaspCategory::A05SecurityMisconfiguration,
+    cwe: 770,
+    debt: 10
 );
 
 // S2168B: Insecure error message
-security_rule!(
+security_rule_mapped!(
     S2168InsecureError,
     "S2168B",
     "Insecure error message",
     Severity::Major,
     r"getMessage\s*\(\s*\).*(?:response|print)",
-    "Don't expose internal error messages."
+    "Don't expose internal error messages.",
+    owasp: OwaspCategory::A05SecurityMisconfiguration,
+    cwe: 209,
+    debt: 10
 );
 
 // S2169: Missing file type validation
-security_rule!(
+security_rule_mapped!(
     S2169MissingFileType,
     "S2169",
     "Missing file type validation",
     Severity::Critical,
     r"getInputStream\s*\(\s*\)",
-    "Validate file types on upload."
+    "Validate file types on upload.",
+    owasp: OwaspCategory::A03Injection,
+    cwe: 434,
+    debt: 20
 );
 
 // S2170: Insecure session ID
-security_rule!(
+security_rule_mapped!(
     S2170InsecureSessionId,
     "S2170",
     "Insecure session ID regeneration",
     Severity::Critical,
     r"void\s+login\s*\(",
-    "Regenerate session ID on login."
+    "Regenerate session ID on login.",
+    owasp: OwaspCategory::A07AuthenticationFailures,
+    cwe: 384,
+    debt: 15
 );
 
 #[cfg(test)]
@@ -3459,5 +4186,201 @@ mod tests {
         let code = r#"MessageDigest.getInstance("SHA-256");"#;
         let issues = analyze_code(code, &S4790WeakHashing);
         assert!(issues.is_empty());
+    }
+
+    // ===== OWASP/CWE Mapping Tests =====
+
+    #[test]
+    fn test_all_security_rules_have_owasp_mapping() {
+        let rules = create_rules();
+        let missing: Vec<_> = rules
+            .iter()
+            .filter(|r| r.owasp().is_none())
+            .map(|r| r.id().to_string())
+            .collect();
+        assert!(
+            missing.is_empty(),
+            "Security rules missing OWASP mappings: {:?}",
+            missing
+        );
+    }
+
+    #[test]
+    fn test_all_security_rules_have_cwe_mapping() {
+        let rules = create_rules();
+        let missing: Vec<_> = rules
+            .iter()
+            .filter(|r| r.cwe().is_none())
+            .map(|r| r.id().to_string())
+            .collect();
+        assert!(
+            missing.is_empty(),
+            "Security rules missing CWE mappings: {:?}",
+            missing
+        );
+    }
+
+    #[test]
+    fn test_injection_rules_map_to_a03() {
+        // SQL Injection
+        assert_eq!(
+            S3649SqlInjection.owasp(),
+            Some(OwaspCategory::A03Injection),
+            "S3649 SQL Injection should map to A03"
+        );
+        // Command Injection
+        assert_eq!(
+            S2076CommandInjection.owasp(),
+            Some(OwaspCategory::A03Injection),
+            "S2076 Command Injection should map to A03"
+        );
+        // LDAP Injection
+        assert_eq!(
+            S2078LdapInjection.owasp(),
+            Some(OwaspCategory::A03Injection),
+            "S2078 LDAP Injection should map to A03"
+        );
+        // XPath Injection
+        assert_eq!(
+            S2091XPathInjection.owasp(),
+            Some(OwaspCategory::A03Injection),
+            "S2091 XPath Injection should map to A03"
+        );
+        // XSS
+        assert_eq!(
+            S5131XssVulnerability.owasp(),
+            Some(OwaspCategory::A03Injection),
+            "S5131 XSS should map to A03"
+        );
+        // Log Injection
+        assert_eq!(
+            S5145LogInjection.owasp(),
+            Some(OwaspCategory::A03Injection),
+            "S5145 Log Injection should map to A03"
+        );
+    }
+
+    #[test]
+    fn test_sql_injection_cwe_89() {
+        assert_eq!(
+            S3649SqlInjection.cwe(),
+            Some(89),
+            "SQL Injection should map to CWE-89"
+        );
+    }
+
+    #[test]
+    fn test_command_injection_cwe_78() {
+        assert_eq!(
+            S2076CommandInjection.cwe(),
+            Some(78),
+            "Command Injection should map to CWE-78"
+        );
+    }
+
+    #[test]
+    fn test_crypto_failures_map_to_a02() {
+        // Weak hashing
+        assert_eq!(
+            S4790WeakHashing.owasp(),
+            Some(OwaspCategory::A02CryptographicFailures),
+            "S4790 Weak Hashing should map to A02"
+        );
+        // Weak SSL/TLS
+        assert_eq!(
+            S4423WeakSslProtocol.owasp(),
+            Some(OwaspCategory::A02CryptographicFailures),
+            "S4423 Weak SSL should map to A02"
+        );
+        // Weak DES
+        assert_eq!(
+            S2278WeakDes.owasp(),
+            Some(OwaspCategory::A02CryptographicFailures),
+            "S2278 Weak DES should map to A02"
+        );
+        // Weak random
+        assert_eq!(
+            S2245PseudoRandomGenerator.owasp(),
+            Some(OwaspCategory::A02CryptographicFailures),
+            "S2245 Weak Random should map to A02"
+        );
+    }
+
+    #[test]
+    fn test_authentication_failures_map_to_a07() {
+        // Hardcoded credentials
+        assert_eq!(
+            S2068HardcodedCredentials.owasp(),
+            Some(OwaspCategory::A07AuthenticationFailures),
+            "S2068 Hardcoded Credentials should map to A07"
+        );
+    }
+
+    #[test]
+    fn test_path_traversal_maps_to_a01() {
+        // Path injection
+        assert_eq!(
+            S2083PathInjection.owasp(),
+            Some(OwaspCategory::A01BrokenAccessControl),
+            "S2083 Path Injection should map to A01"
+        );
+        // Zip slip
+        assert_eq!(
+            S6096ZipSlip.owasp(),
+            Some(OwaspCategory::A01BrokenAccessControl),
+            "S6096 Zip Slip should map to A01"
+        );
+    }
+
+    #[test]
+    fn test_deserialization_maps_to_a08() {
+        assert_eq!(
+            S4434UncheckedDeserialize.owasp(),
+            Some(OwaspCategory::A08SoftwareDataIntegrityFailures),
+            "S4434 Deserialization should map to A08"
+        );
+    }
+
+    #[test]
+    fn test_xxe_maps_to_a05() {
+        assert_eq!(
+            S2755XxeVulnerability.owasp(),
+            Some(OwaspCategory::A05SecurityMisconfiguration),
+            "S2755 XXE should map to A05"
+        );
+    }
+
+    #[test]
+    fn test_csrf_maps_to_a01() {
+        assert_eq!(
+            S4502DisabledCsrf.owasp(),
+            Some(OwaspCategory::A01BrokenAccessControl),
+            "S4502 CSRF should map to A01"
+        );
+    }
+
+    #[test]
+    fn test_open_redirect_maps_to_a01() {
+        assert_eq!(
+            S5144OpenRedirect.owasp(),
+            Some(OwaspCategory::A01BrokenAccessControl),
+            "S5144 Open Redirect should map to A01"
+        );
+    }
+
+    #[test]
+    fn test_cookie_security_maps_to_a05() {
+        // HttpOnly flag
+        assert_eq!(
+            S2089HttpOnlyCookie.owasp(),
+            Some(OwaspCategory::A05SecurityMisconfiguration),
+            "S2089 HttpOnly Cookie should map to A05"
+        );
+        // Secure flag
+        assert_eq!(
+            S2092CookieSecureFlag.owasp(),
+            Some(OwaspCategory::A05SecurityMisconfiguration),
+            "S2092 Secure Cookie should map to A05"
+        );
     }
 }
