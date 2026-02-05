@@ -20,7 +20,7 @@ inputs:
     required: false
     default: ''
   format:
-    description: 'Output format (text, json, sarif, csv, markdown)'
+    description: 'Output format (text, json, sarif, csv, markdown, gitlab)'
     required: false
     default: 'text'
   exclude-rules:
@@ -35,6 +35,18 @@ inputs:
     description: 'Maximum cognitive complexity threshold'
     required: false
     default: '15'
+  quality-gate:
+    description: 'Quality gate preset (strict, standard, lenient) or path to custom quality gate file'
+    required: false
+    default: ''
+  compliance:
+    description: 'Compliance reporting mode (owasp, cwe) - groups issues by compliance standard'
+    required: false
+    default: ''
+  sarif-upload:
+    description: 'Upload SARIF results to GitHub Security tab (true/false)'
+    required: false
+    default: 'false'
 
 outputs:
   issues-count:
@@ -46,6 +58,12 @@ outputs:
   critical-count:
     description: 'Number of critical issues'
     value: ${{ steps.analyze.outputs.critical-count }}
+  quality-gate-status:
+    description: 'Quality gate status (passed/failed)'
+    value: ${{ steps.analyze.outputs.quality-gate-status }}
+  sarif-file:
+    description: 'Path to generated SARIF file (if sarif-upload is enabled)'
+    value: ${{ steps.analyze.outputs.sarif-file }}
 
 runs:
   using: 'composite'
@@ -77,6 +95,9 @@ runs:
         ANALYZER_EXCLUDE_RULES: ${{ inputs.exclude-rules }}
         ANALYZER_EXCLUDE_PATTERNS: ${{ inputs.exclude-patterns }}
         ANALYZER_MAX_COMPLEXITY: ${{ inputs.max-complexity }}
+        ANALYZER_QUALITY_GATE: ${{ inputs.quality-gate }}
+        ANALYZER_COMPLIANCE: ${{ inputs.compliance }}
+        ANALYZER_SARIF_UPLOAD: ${{ inputs.sarif-upload }}
       run: |
         ARGS="--format $ANALYZER_FORMAT --min-severity $ANALYZER_SEVERITY --max-complexity $ANALYZER_MAX_COMPLEXITY"
 
@@ -92,6 +113,23 @@ runs:
           ARGS="$ARGS --exclude $ANALYZER_EXCLUDE_PATTERNS"
         fi
 
+        # Add quality gate if specified
+        if [ -n "$ANALYZER_QUALITY_GATE" ]; then
+          # Check if it's a preset or a file path
+          if [[ "$ANALYZER_QUALITY_GATE" =~ ^(strict|standard|lenient)$ ]]; then
+            ARGS="$ARGS --quality-gate $ANALYZER_QUALITY_GATE"
+          elif [ -f "$ANALYZER_QUALITY_GATE" ]; then
+            ARGS="$ARGS --quality-gate-file $ANALYZER_QUALITY_GATE"
+          else
+            echo "Warning: Quality gate '$ANALYZER_QUALITY_GATE' is not a valid preset or file"
+          fi
+        fi
+
+        # Add compliance mode if specified
+        if [ -n "$ANALYZER_COMPLIANCE" ]; then
+          ARGS="$ARGS --compliance $ANALYZER_COMPLIANCE"
+        fi
+
         # Run analysis and capture output
         OUTPUT=$(~/.cargo/bin/java-analyzer "$ANALYZER_PATH" $ARGS --summary-only 2>&1) || true
         echo "$OUTPUT"
@@ -101,9 +139,46 @@ runs:
         BLOCKER=$(echo "$OUTPUT" | grep -oP 'BLOCKER\s*:\s*\K\d+' || echo "0")
         CRITICAL=$(echo "$OUTPUT" | grep -oP 'CRITICAL\s*:\s*\K\d+' || echo "0")
 
+        # Check for quality gate status
+        if echo "$OUTPUT" | grep -q "Quality Gate.*PASSED"; then
+          GATE_STATUS="passed"
+        elif echo "$OUTPUT" | grep -q "Quality Gate.*FAILED"; then
+          GATE_STATUS="failed"
+        else
+          GATE_STATUS="not-configured"
+        fi
+
         echo "issues-count=$ISSUES" >> $GITHUB_OUTPUT
         echo "blocker-count=$BLOCKER" >> $GITHUB_OUTPUT
         echo "critical-count=$CRITICAL" >> $GITHUB_OUTPUT
+        echo "quality-gate-status=$GATE_STATUS" >> $GITHUB_OUTPUT
 
-        # Run full analysis
+        # Generate SARIF file if sarif-upload is enabled
+        if [ "$ANALYZER_SARIF_UPLOAD" = "true" ]; then
+          SARIF_FILE="java-analyzer-results.sarif"
+
+          # Build args for SARIF generation (without compliance which affects grouping)
+          SARIF_ARGS="--format sarif --min-severity $ANALYZER_SEVERITY --max-complexity $ANALYZER_MAX_COMPLEXITY"
+
+          if [ -n "$ANALYZER_EXCLUDE_RULES" ]; then
+            SARIF_ARGS="$SARIF_ARGS --exclude-rules $ANALYZER_EXCLUDE_RULES"
+          fi
+
+          if [ -n "$ANALYZER_EXCLUDE_PATTERNS" ]; then
+            SARIF_ARGS="$SARIF_ARGS --exclude $ANALYZER_EXCLUDE_PATTERNS"
+          fi
+
+          ~/.cargo/bin/java-analyzer "$ANALYZER_PATH" $SARIF_ARGS --output "$SARIF_FILE"
+          echo "sarif-file=$SARIF_FILE" >> $GITHUB_OUTPUT
+          echo "Generated SARIF file: $SARIF_FILE"
+        fi
+
+        # Run full analysis with original format
         ~/.cargo/bin/java-analyzer "$ANALYZER_PATH" $ARGS
+
+    - name: Upload SARIF to GitHub Security
+      if: inputs.sarif-upload == 'true'
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: java-analyzer-results.sarif
+        category: java-analyzer
