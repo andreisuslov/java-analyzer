@@ -100,7 +100,7 @@ impl SuppressionIndex {
                         Vec::new()
                     } else {
                         rules_str
-                            .split(|c| c == ',' || c == ' ')
+                            .split([',', ' '])
                             .map(|s| s.trim())
                             .filter(|s| !s.is_empty())
                             .map(|s| s.to_string())
