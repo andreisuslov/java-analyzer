@@ -6,8 +6,8 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{AnalysisResult, Severity};
 use crate::rules::RuleCategory;
+use crate::{AnalysisResult, Severity};
 
 /// Technical debt summary
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -39,8 +39,12 @@ impl DebtSummary {
             let debt = issue.debt_minutes;
             total_minutes += debt;
 
-            *by_severity.entry(format!("{:?}", issue.severity)).or_default() += debt;
-            *by_category.entry(format!("{:?}", issue.category)).or_default() += debt;
+            *by_severity
+                .entry(format!("{:?}", issue.severity))
+                .or_default() += debt;
+            *by_category
+                .entry(format!("{:?}", issue.category))
+                .or_default() += debt;
             *by_file.entry(issue.file.clone()).or_default() += debt;
             *by_rule.entry(issue.rule_id.clone()).or_default() += debt;
         }
@@ -161,7 +165,8 @@ pub struct DebtItem {
 impl DebtSummary {
     /// Get detailed breakdown by severity
     pub fn severity_breakdown(&self) -> DebtBreakdown {
-        let items: Vec<DebtItem> = self.by_severity
+        let items: Vec<DebtItem> = self
+            .by_severity
             .iter()
             .map(|(name, &minutes)| {
                 let percentage = if self.total_minutes > 0 {
@@ -186,7 +191,8 @@ impl DebtSummary {
 
     /// Get detailed breakdown by category
     pub fn category_breakdown(&self) -> DebtBreakdown {
-        let items: Vec<DebtItem> = self.by_category
+        let items: Vec<DebtItem> = self
+            .by_category
             .iter()
             .map(|(name, &minutes)| {
                 let percentage = if self.total_minutes > 0 {
@@ -215,7 +221,13 @@ mod tests {
     use super::*;
     use crate::rules::Issue;
 
-    fn create_issue(rule_id: &str, file: &str, severity: Severity, category: RuleCategory, debt: u32) -> Issue {
+    fn create_issue(
+        rule_id: &str,
+        file: &str,
+        severity: Severity,
+        category: RuleCategory,
+        debt: u32,
+    ) -> Issue {
         Issue {
             rule_id: rule_id.to_string(),
             title: "Test".to_string(),
@@ -273,45 +285,65 @@ mod tests {
 
     #[test]
     fn test_rating_a() {
-        let result = create_result(vec![
-            create_issue("S1", "f.java", Severity::Minor, RuleCategory::CodeSmell, 10),
-        ]);
+        let result = create_result(vec![create_issue(
+            "S1",
+            "f.java",
+            Severity::Minor,
+            RuleCategory::CodeSmell,
+            10,
+        )]);
         let summary = DebtSummary::from_analysis(&result);
         assert_eq!(summary.rating(), DebtRating::A);
     }
 
     #[test]
     fn test_rating_b() {
-        let result = create_result(vec![
-            create_issue("S1", "f.java", Severity::Minor, RuleCategory::CodeSmell, 60),
-        ]);
+        let result = create_result(vec![create_issue(
+            "S1",
+            "f.java",
+            Severity::Minor,
+            RuleCategory::CodeSmell,
+            60,
+        )]);
         let summary = DebtSummary::from_analysis(&result);
         assert_eq!(summary.rating(), DebtRating::B);
     }
 
     #[test]
     fn test_rating_c() {
-        let result = create_result(vec![
-            create_issue("S1", "f.java", Severity::Major, RuleCategory::Bug, 300),
-        ]);
+        let result = create_result(vec![create_issue(
+            "S1",
+            "f.java",
+            Severity::Major,
+            RuleCategory::Bug,
+            300,
+        )]);
         let summary = DebtSummary::from_analysis(&result);
         assert_eq!(summary.rating(), DebtRating::C);
     }
 
     #[test]
     fn test_rating_d() {
-        let result = create_result(vec![
-            create_issue("S1", "f.java", Severity::Critical, RuleCategory::Bug, 600),
-        ]);
+        let result = create_result(vec![create_issue(
+            "S1",
+            "f.java",
+            Severity::Critical,
+            RuleCategory::Bug,
+            600,
+        )]);
         let summary = DebtSummary::from_analysis(&result);
         assert_eq!(summary.rating(), DebtRating::D);
     }
 
     #[test]
     fn test_rating_e() {
-        let result = create_result(vec![
-            create_issue("S1", "f.java", Severity::Blocker, RuleCategory::Security, 2000),
-        ]);
+        let result = create_result(vec![create_issue(
+            "S1",
+            "f.java",
+            Severity::Blocker,
+            RuleCategory::Security,
+            2000,
+        )]);
         let summary = DebtSummary::from_analysis(&result);
         assert_eq!(summary.rating(), DebtRating::E);
     }
@@ -331,9 +363,21 @@ mod tests {
     #[test]
     fn test_total_calculation() {
         let result = create_result(vec![
-            create_issue("S1", "f1.java", Severity::Minor, RuleCategory::CodeSmell, 10),
+            create_issue(
+                "S1",
+                "f1.java",
+                Severity::Minor,
+                RuleCategory::CodeSmell,
+                10,
+            ),
             create_issue("S2", "f2.java", Severity::Major, RuleCategory::Bug, 20),
-            create_issue("S3", "f1.java", Severity::Critical, RuleCategory::Security, 30),
+            create_issue(
+                "S3",
+                "f1.java",
+                Severity::Critical,
+                RuleCategory::Security,
+                30,
+            ),
         ]);
         let summary = DebtSummary::from_analysis(&result);
 
@@ -369,7 +413,13 @@ mod tests {
     #[test]
     fn test_by_file_sorted() {
         let result = create_result(vec![
-            create_issue("S1", "low.java", Severity::Minor, RuleCategory::CodeSmell, 5),
+            create_issue(
+                "S1",
+                "low.java",
+                Severity::Minor,
+                RuleCategory::CodeSmell,
+                5,
+            ),
             create_issue("S2", "high.java", Severity::Major, RuleCategory::Bug, 100),
             create_issue("S3", "medium.java", Severity::Major, RuleCategory::Bug, 50),
         ]);
@@ -382,7 +432,13 @@ mod tests {
     #[test]
     fn test_by_rule_sorted() {
         let result = create_result(vec![
-            create_issue("S100", "f.java", Severity::Minor, RuleCategory::CodeSmell, 5),
+            create_issue(
+                "S100",
+                "f.java",
+                Severity::Minor,
+                RuleCategory::CodeSmell,
+                5,
+            ),
             create_issue("S200", "f.java", Severity::Major, RuleCategory::Bug, 100),
             create_issue("S200", "g.java", Severity::Major, RuleCategory::Bug, 50),
         ]);
@@ -394,9 +450,13 @@ mod tests {
 
     #[test]
     fn test_is_acceptable() {
-        let result = create_result(vec![
-            create_issue("S1", "f.java", Severity::Minor, RuleCategory::CodeSmell, 50),
-        ]);
+        let result = create_result(vec![create_issue(
+            "S1",
+            "f.java",
+            Severity::Minor,
+            RuleCategory::CodeSmell,
+            50,
+        )]);
         let summary = DebtSummary::from_analysis(&result);
 
         assert!(summary.is_acceptable(60));

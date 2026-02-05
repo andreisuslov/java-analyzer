@@ -2,21 +2,21 @@
 //!
 //! A fast static code analyzer for Java based on SonarSource rules.
 
-use std::path::PathBuf;
-use std::process::ExitCode;
 use std::fs;
 use std::io::Write;
+use std::path::PathBuf;
+use std::process::ExitCode;
 
 use clap::{Parser, Subcommand, ValueEnum};
 use colored::*;
 
-use java_analyzer::{Analyzer, AnalyzerConfig, Severity, AnalysisResult, QualityGate};
-use java_analyzer::{DuplicationDetector, DuplicationConfig};
-use java_analyzer::{Baseline, compare_with_baseline};
-use java_analyzer::{DebtSummary, DebtRating};
-use java_analyzer::hotspots::HotspotResult;
 use java_analyzer::coverage::{load_coverage, CoverageReport};
-use java_analyzer::reports::{Report, ReportFormat, ReportConfig};
+use java_analyzer::hotspots::HotspotResult;
+use java_analyzer::reports::{Report, ReportConfig, ReportFormat};
+use java_analyzer::{compare_with_baseline, Baseline};
+use java_analyzer::{AnalysisResult, Analyzer, AnalyzerConfig, QualityGate, Severity};
+use java_analyzer::{DebtRating, DebtSummary};
+use java_analyzer::{DuplicationConfig, DuplicationDetector};
 
 #[derive(Parser)]
 #[command(name = "java-analyzer")]
@@ -285,45 +285,52 @@ fn main() -> ExitCode {
             print_version();
             ExitCode::SUCCESS
         }
-        Some(Commands::Init { output }) => {
-            generate_config(&output)
-        }
-        Some(Commands::Duplication { path, min_lines, ignore_whitespace, format }) => {
-            run_duplication_check(&path, min_lines, ignore_whitespace, &format)
-        }
-        Some(Commands::Baseline { path, output, description }) => {
-            create_baseline(&path, &output, description)
-        }
-        Some(Commands::Diff { path, baseline, new_only, format }) => {
-            run_diff_analysis(&path, &baseline, new_only, &format)
-        }
-        Some(Commands::Debt { path, format }) => {
-            show_debt_summary(&path, &format)
-        }
-        Some(Commands::Hotspots { path, format }) => {
-            show_hotspots(&path, &format)
-        }
-        Some(Commands::Coverage { report, threshold, format }) => {
-            show_coverage(&report, threshold, &format)
-        }
-        Some(Commands::Analyze { ref path }) => {
-            run_analysis(&cli, path)
-        }
-        None => {
-            match &cli.path {
-                Some(p) => run_analysis(&cli, p),
-                None => {
-                    eprintln!("{}: No path specified. Use --help for usage.", "Error".red().bold());
-                    ExitCode::FAILURE
-                }
+        Some(Commands::Init { output }) => generate_config(&output),
+        Some(Commands::Duplication {
+            path,
+            min_lines,
+            ignore_whitespace,
+            format,
+        }) => run_duplication_check(&path, min_lines, ignore_whitespace, &format),
+        Some(Commands::Baseline {
+            path,
+            output,
+            description,
+        }) => create_baseline(&path, &output, description),
+        Some(Commands::Diff {
+            path,
+            baseline,
+            new_only,
+            format,
+        }) => run_diff_analysis(&path, &baseline, new_only, &format),
+        Some(Commands::Debt { path, format }) => show_debt_summary(&path, &format),
+        Some(Commands::Hotspots { path, format }) => show_hotspots(&path, &format),
+        Some(Commands::Coverage {
+            report,
+            threshold,
+            format,
+        }) => show_coverage(&report, threshold, &format),
+        Some(Commands::Analyze { ref path }) => run_analysis(&cli, path),
+        None => match &cli.path {
+            Some(p) => run_analysis(&cli, p),
+            None => {
+                eprintln!(
+                    "{}: No path specified. Use --help for usage.",
+                    "Error".red().bold()
+                );
+                ExitCode::FAILURE
             }
-        }
+        },
     }
 }
 
 fn run_analysis(cli: &Cli, path: &PathBuf) -> ExitCode {
     if !path.exists() {
-        eprintln!("{}: Path does not exist: {}", "Error".red().bold(), path.display());
+        eprintln!(
+            "{}: Path does not exist: {}",
+            "Error".red().bold(),
+            path.display()
+        );
         return ExitCode::FAILURE;
     }
 
@@ -349,7 +356,11 @@ fn run_analysis(cli: &Cli, path: &PathBuf) -> ExitCode {
 
     if cli.verbose {
         eprintln!("{} Analyzing {}...", "Info:".blue().bold(), path.display());
-        eprintln!("{} {} rules active", "Info:".blue().bold(), analyzer.available_rules().len());
+        eprintln!(
+            "{} {} rules active",
+            "Info:".blue().bold(),
+            analyzer.available_rules().len()
+        );
     }
 
     let result = analyzer.analyze(path);
@@ -371,7 +382,11 @@ fn run_analysis(cli: &Cli, path: &PathBuf) -> ExitCode {
             match fs::write(output_path, &report) {
                 Ok(_) => {
                     if cli.verbose {
-                        eprintln!("{} Report written to {}", "Success:".green().bold(), output_path.display());
+                        eprintln!(
+                            "{} Report written to {}",
+                            "Success:".green().bold(),
+                            output_path.display()
+                        );
                     }
                 }
                 Err(e) => {
@@ -421,7 +436,11 @@ fn evaluate_quality_gate(cli: &Cli, result: &AnalysisResult) -> bool {
         match loaded {
             Ok(g) => Some(g),
             Err(e) => {
-                eprintln!("{}: Failed to load quality gate: {}", "Error".red().bold(), e);
+                eprintln!(
+                    "{}: Failed to load quality gate: {}",
+                    "Error".red().bold(),
+                    e
+                );
                 return true; // Don't fail on gate load error
             }
         }
@@ -449,10 +468,11 @@ fn evaluate_quality_gate(cli: &Cli, result: &AnalysisResult) -> bool {
             } else {
                 "FAILED".red().bold()
             };
-            println!("{} Quality Gate: {} - {}",
-                     "━━━".dimmed(),
-                     gate_result.gate_name.cyan(),
-                     status
+            println!(
+                "{} Quality Gate: {} - {}",
+                "━━━".dimmed(),
+                gate_result.gate_name.cyan(),
+                status
             );
             for cond in &gate_result.conditions {
                 println!("    {}", cond.message);
@@ -533,11 +553,12 @@ fn list_rules(category: Option<String>, details: bool) {
             Severity::Info => "INFO    ".white(),
         };
 
-        println!("{} [{}] {} - {}",
-                 rule.id().cyan(),
-                 severity_str,
-                 format!("{:?}", rule.category()).dimmed(),
-                 rule.title()
+        println!(
+            "{} [{}] {} - {}",
+            rule.id().cyan(),
+            severity_str,
+            format!("{:?}", rule.category()).dimmed(),
+            rule.title()
         );
 
         if details && !rule.description().is_empty() {
@@ -547,7 +568,11 @@ fn list_rules(category: Option<String>, details: bool) {
 }
 
 fn print_version() {
-    println!("{} {}", "Java Analyzer".bold().cyan(), env!("CARGO_PKG_VERSION"));
+    println!(
+        "{} {}",
+        "Java Analyzer".bold().cyan(),
+        env!("CARGO_PKG_VERSION")
+    );
     println!();
     println!("A fast static code analyzer for Java based on SonarSource rules.");
     println!();
@@ -600,21 +625,38 @@ output_format = "text"
 
     match fs::write(output, config) {
         Ok(_) => {
-            println!("{} Configuration written to {}", "Success:".green().bold(), output.display());
+            println!(
+                "{} Configuration written to {}",
+                "Success:".green().bold(),
+                output.display()
+            );
             ExitCode::SUCCESS
         }
         Err(e) => {
-            eprintln!("{}: Failed to write configuration: {}", "Error".red().bold(), e);
+            eprintln!(
+                "{}: Failed to write configuration: {}",
+                "Error".red().bold(),
+                e
+            );
             ExitCode::FAILURE
         }
     }
 }
 
-fn run_duplication_check(path: &PathBuf, min_lines: usize, ignore_whitespace: bool, format: &str) -> ExitCode {
+fn run_duplication_check(
+    path: &PathBuf,
+    min_lines: usize,
+    ignore_whitespace: bool,
+    format: &str,
+) -> ExitCode {
     use walkdir::WalkDir;
 
     if !path.exists() {
-        eprintln!("{}: Path does not exist: {}", "Error".red().bold(), path.display());
+        eprintln!(
+            "{}: Path does not exist: {}",
+            "Error".red().bold(),
+            path.display()
+        );
         return ExitCode::FAILURE;
     }
 
@@ -642,7 +684,9 @@ fn run_duplication_check(path: &PathBuf, min_lines: usize, ignore_whitespace: bo
             .filter(|e| e.path().extension().map_or(false, |ext| ext == "java"))
             .filter_map(|e| {
                 let path_str = e.path().to_string_lossy().to_string();
-                fs::read_to_string(e.path()).ok().map(|content| (path_str, content))
+                fs::read_to_string(e.path())
+                    .ok()
+                    .map(|content| (path_str, content))
             })
             .collect()
     };
@@ -658,7 +702,11 @@ fn run_duplication_check(path: &PathBuf, min_lines: usize, ignore_whitespace: bo
         match serde_json::to_string_pretty(&result) {
             Ok(json) => println!("{}", json),
             Err(e) => {
-                eprintln!("{}: Failed to serialize result: {}", "Error".red().bold(), e);
+                eprintln!(
+                    "{}: Failed to serialize result: {}",
+                    "Error".red().bold(),
+                    e
+                );
                 return ExitCode::FAILURE;
             }
         }
@@ -681,18 +729,23 @@ fn run_duplication_check(path: &PathBuf, min_lines: usize, ignore_whitespace: bo
 
             for (i, dup) in result.duplicates.iter().enumerate() {
                 if i >= 10 {
-                    println!("... and {} more duplicate blocks", result.duplicates.len() - 10);
+                    println!(
+                        "... and {} more duplicate blocks",
+                        result.duplicates.len() - 10
+                    );
                     break;
                 }
 
-                println!("{}. {} occurrences ({} lines):",
+                println!(
+                    "{}. {} occurrences ({} lines):",
                     i + 1,
                     dup.duplicate_count(),
                     dup.line_count
                 );
 
                 for loc in &dup.locations {
-                    println!("   {} (lines {}-{})",
+                    println!(
+                        "   {} (lines {}-{})",
                         loc.file.dimmed(),
                         loc.start_line,
                         loc.end_line
@@ -715,7 +768,11 @@ fn run_duplication_check(path: &PathBuf, min_lines: usize, ignore_whitespace: bo
 
 fn create_baseline(path: &PathBuf, output: &PathBuf, description: Option<String>) -> ExitCode {
     if !path.exists() {
-        eprintln!("{}: Path does not exist: {}", "Error".red().bold(), path.display());
+        eprintln!(
+            "{}: Path does not exist: {}",
+            "Error".red().bold(),
+            path.display()
+        );
         return ExitCode::FAILURE;
     }
 
@@ -729,7 +786,8 @@ fn create_baseline(path: &PathBuf, output: &PathBuf, description: Option<String>
 
     match baseline.save(output) {
         Ok(_) => {
-            println!("{} Baseline created with {} issues",
+            println!(
+                "{} Baseline created with {} issues",
                 "Success:".green().bold(),
                 baseline.issue_count()
             );
@@ -743,14 +801,27 @@ fn create_baseline(path: &PathBuf, output: &PathBuf, description: Option<String>
     }
 }
 
-fn run_diff_analysis(path: &PathBuf, baseline_path: &PathBuf, new_only: bool, format: &str) -> ExitCode {
+fn run_diff_analysis(
+    path: &PathBuf,
+    baseline_path: &PathBuf,
+    new_only: bool,
+    format: &str,
+) -> ExitCode {
     if !path.exists() {
-        eprintln!("{}: Path does not exist: {}", "Error".red().bold(), path.display());
+        eprintln!(
+            "{}: Path does not exist: {}",
+            "Error".red().bold(),
+            path.display()
+        );
         return ExitCode::FAILURE;
     }
 
     if !baseline_path.exists() {
-        eprintln!("{}: Baseline file does not exist: {}", "Error".red().bold(), baseline_path.display());
+        eprintln!(
+            "{}: Baseline file does not exist: {}",
+            "Error".red().bold(),
+            baseline_path.display()
+        );
         return ExitCode::FAILURE;
     }
 
@@ -774,7 +845,11 @@ fn run_diff_analysis(path: &PathBuf, baseline_path: &PathBuf, new_only: bool, fo
         match serde_json::to_string_pretty(&diff) {
             Ok(json) => println!("{}", json),
             Err(e) => {
-                eprintln!("{}: Failed to serialize result: {}", "Error".red().bold(), e);
+                eprintln!(
+                    "{}: Failed to serialize result: {}",
+                    "Error".red().bold(),
+                    e
+                );
                 return ExitCode::FAILURE;
             }
         }
@@ -783,7 +858,8 @@ fn run_diff_analysis(path: &PathBuf, baseline_path: &PathBuf, new_only: bool, fo
         println!("{}", "Differential Analysis".bold().cyan());
         println!("{}", "=====================".cyan());
         println!();
-        println!("Baseline: {} (created: {})",
+        println!(
+            "Baseline: {} (created: {})",
             baseline_path.display(),
             baseline.created_at
         );
@@ -801,7 +877,8 @@ fn run_diff_analysis(path: &PathBuf, baseline_path: &PathBuf, new_only: bool, fo
             "0".to_string()
         };
 
-        println!("{} new | {} fixed | {} unchanged | Net: {}",
+        println!(
+            "{} new | {} fixed | {} unchanged | Net: {}",
             diff.new_count.to_string().red(),
             diff.fixed_count.to_string().green(),
             diff.unchanged_count.to_string().dimmed(),
@@ -812,7 +889,8 @@ fn run_diff_analysis(path: &PathBuf, baseline_path: &PathBuf, new_only: bool, fo
         if !diff.new_issues.is_empty() {
             println!("{}", "New Issues:".red().bold());
             for issue in &diff.new_issues {
-                println!("  [{}] {}:{} - {} ({})",
+                println!(
+                    "  [{}] {}:{} - {} ({})",
                     format!("{:?}", issue.severity).yellow(),
                     issue.file,
                     issue.line,
@@ -826,7 +904,8 @@ fn run_diff_analysis(path: &PathBuf, baseline_path: &PathBuf, new_only: bool, fo
         if !new_only && !diff.fixed_issues.is_empty() {
             println!("{}", "Fixed Issues:".green().bold());
             for fp in &diff.fixed_issues {
-                println!("  [{}] {}:{} - {}",
+                println!(
+                    "  [{}] {}:{} - {}",
                     "FIXED".green(),
                     fp.file,
                     fp.line,
@@ -851,7 +930,11 @@ fn run_diff_analysis(path: &PathBuf, baseline_path: &PathBuf, new_only: bool, fo
 
 fn show_debt_summary(path: &PathBuf, format: &str) -> ExitCode {
     if !path.exists() {
-        eprintln!("{}: Path does not exist: {}", "Error".red().bold(), path.display());
+        eprintln!(
+            "{}: Path does not exist: {}",
+            "Error".red().bold(),
+            path.display()
+        );
         return ExitCode::FAILURE;
     }
 
@@ -881,7 +964,11 @@ fn show_debt_summary(path: &PathBuf, format: &str) -> ExitCode {
             DebtRating::E => "E".red().bold(),
         };
 
-        println!("Total Debt:  {} ({})", debt.formatted_total.bold(), rating.description());
+        println!(
+            "Total Debt:  {} ({})",
+            debt.formatted_total.bold(),
+            rating.description()
+        );
         println!("Rating:      {}", rating_color.bold());
         println!();
 
@@ -918,7 +1005,11 @@ fn show_debt_summary(path: &PathBuf, format: &str) -> ExitCode {
 
 fn show_hotspots(path: &PathBuf, format: &str) -> ExitCode {
     if !path.exists() {
-        eprintln!("{}: Path does not exist: {}", "Error".red().bold(), path.display());
+        eprintln!(
+            "{}: Path does not exist: {}",
+            "Error".red().bold(),
+            path.display()
+        );
         return ExitCode::FAILURE;
     }
 
@@ -940,15 +1031,22 @@ fn show_hotspots(path: &PathBuf, format: &str) -> ExitCode {
         println!();
 
         println!("Total Hotspots: {}", hotspots.total_hotspots);
-        println!("  High Priority:   {}", hotspots.high_priority.len().to_string().red());
-        println!("  Medium Priority: {}", hotspots.medium_priority.len().to_string().yellow());
+        println!(
+            "  High Priority:   {}",
+            hotspots.high_priority.len().to_string().red()
+        );
+        println!(
+            "  Medium Priority: {}",
+            hotspots.medium_priority.len().to_string().yellow()
+        );
         println!("  Low Priority:    {}", hotspots.low_priority.len());
         println!();
 
         if !hotspots.high_priority.is_empty() {
             println!("{}", "High Priority Hotspots:".red().bold());
             for h in &hotspots.high_priority {
-                println!("  [{}] {}:{} - {}",
+                println!(
+                    "  [{}] {}:{} - {}",
                     h.category.as_str().red(),
                     h.issue.file,
                     h.issue.line,
@@ -961,7 +1059,8 @@ fn show_hotspots(path: &PathBuf, format: &str) -> ExitCode {
         if !hotspots.medium_priority.is_empty() {
             println!("{}", "Medium Priority Hotspots:".yellow().bold());
             for h in hotspots.medium_priority.iter().take(10) {
-                println!("  [{}] {}:{} - {}",
+                println!(
+                    "  [{}] {}:{} - {}",
                     h.category.as_str().yellow(),
                     h.issue.file,
                     h.issue.line,
@@ -1010,7 +1109,11 @@ fn show_coverage(report_path: &PathBuf, threshold: f64, format: &str) -> ExitCod
             cov_str.red()
         };
 
-        println!("Overall Coverage: {} (threshold: {:.1}%)", cov_colored.bold(), threshold);
+        println!(
+            "Overall Coverage: {} (threshold: {:.1}%)",
+            cov_colored.bold(),
+            threshold
+        );
         println!("Files with coverage: {}", coverage.files_with_coverage);
         println!("Lines covered:   {}", coverage.total_covered);
         println!("Lines uncovered: {}", coverage.total_uncovered);
@@ -1018,7 +1121,12 @@ fn show_coverage(report_path: &PathBuf, threshold: f64, format: &str) -> ExitCod
 
         let below = coverage.files_below_threshold(threshold);
         if !below.is_empty() {
-            println!("{}", format!("Files Below {}% Threshold:", threshold).red().bold());
+            println!(
+                "{}",
+                format!("Files Below {}% Threshold:", threshold)
+                    .red()
+                    .bold()
+            );
             for f in below.iter().take(10) {
                 println!("  {:.1}% - {}", f.line_coverage, f.file);
             }

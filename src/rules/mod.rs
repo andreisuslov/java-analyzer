@@ -2,11 +2,11 @@
 //!
 //! This module contains all the static analysis rules organized by category.
 
-mod naming;
-mod security;
 mod bugs;
 mod code_smells;
 mod complexity;
+mod naming;
+mod security;
 
 use serde::{Deserialize, Serialize};
 
@@ -154,16 +154,24 @@ pub trait Rule: Send + Sync {
     fn category(&self) -> RuleCategory;
 
     /// Detailed description
-    fn description(&self) -> &str { "" }
+    fn description(&self) -> &str {
+        ""
+    }
 
     /// OWASP Top 10 category (for security rules)
-    fn owasp(&self) -> Option<OwaspCategory> { None }
+    fn owasp(&self) -> Option<OwaspCategory> {
+        None
+    }
 
     /// CWE identifier (Common Weakness Enumeration)
-    fn cwe(&self) -> Option<u32> { None }
+    fn cwe(&self) -> Option<u32> {
+        None
+    }
 
     /// Estimated remediation time in minutes (technical debt)
-    fn debt_minutes(&self) -> u32 { 5 }
+    fn debt_minutes(&self) -> u32 {
+        5
+    }
 
     /// Check the code and return any issues found
     fn check(&self, ctx: &AnalysisContext) -> Vec<Issue>;
@@ -245,38 +253,48 @@ mod tests {
 
     #[test]
     fn test_owasp_category_name() {
-        assert_eq!(OwaspCategory::A01BrokenAccessControl.name(), "Broken Access Control");
+        assert_eq!(
+            OwaspCategory::A01BrokenAccessControl.name(),
+            "Broken Access Control"
+        );
         assert_eq!(OwaspCategory::A03Injection.name(), "Injection");
     }
 
     #[test]
     fn test_security_rules_have_owasp_mapping() {
         let rules = create_all_rules();
-        let security_rules: Vec<_> = rules.iter()
+        let security_rules: Vec<_> = rules
+            .iter()
             .filter(|r| r.category() == RuleCategory::Security)
             .collect();
 
         // At least some security rules should have OWASP mappings
-        let rules_with_owasp = security_rules.iter()
+        let rules_with_owasp = security_rules
+            .iter()
             .filter(|r| r.owasp().is_some())
             .count();
 
-        assert!(rules_with_owasp > 0, "Security rules should have OWASP mappings");
+        assert!(
+            rules_with_owasp > 0,
+            "Security rules should have OWASP mappings"
+        );
     }
 
     #[test]
     fn test_security_rules_have_cwe_mapping() {
         let rules = create_all_rules();
-        let security_rules: Vec<_> = rules.iter()
+        let security_rules: Vec<_> = rules
+            .iter()
             .filter(|r| r.category() == RuleCategory::Security)
             .collect();
 
         // At least some security rules should have CWE mappings
-        let rules_with_cwe = security_rules.iter()
-            .filter(|r| r.cwe().is_some())
-            .count();
+        let rules_with_cwe = security_rules.iter().filter(|r| r.cwe().is_some()).count();
 
-        assert!(rules_with_cwe > 0, "Security rules should have CWE mappings");
+        assert!(
+            rules_with_cwe > 0,
+            "Security rules should have CWE mappings"
+        );
     }
 
     // ===== Technical Debt Tests =====
@@ -287,8 +305,11 @@ mod tests {
 
         // All rules should have a debt estimate > 0
         for rule in &rules {
-            assert!(rule.debt_minutes() > 0,
-                "Rule {} should have debt estimate > 0", rule.id());
+            assert!(
+                rule.debt_minutes() > 0,
+                "Rule {} should have debt estimate > 0",
+                rule.id()
+            );
         }
     }
 
@@ -297,12 +318,14 @@ mod tests {
         let rules = create_all_rules();
 
         // Find average debt for different severities
-        let blocker_debt: Vec<u32> = rules.iter()
+        let blocker_debt: Vec<u32> = rules
+            .iter()
             .filter(|r| r.severity() == Severity::Blocker)
             .map(|r| r.debt_minutes())
             .collect();
 
-        let minor_debt: Vec<u32> = rules.iter()
+        let minor_debt: Vec<u32> = rules
+            .iter()
             .filter(|r| r.severity() == Severity::Minor)
             .map(|r| r.debt_minutes())
             .collect();
@@ -312,8 +335,10 @@ mod tests {
             let avg_minor: u32 = minor_debt.iter().sum::<u32>() / minor_debt.len() as u32;
 
             // Blocker issues should generally take longer to fix
-            assert!(avg_blocker >= avg_minor,
-                "Blocker issues should have equal or higher debt than minor issues");
+            assert!(
+                avg_blocker >= avg_minor,
+                "Blocker issues should have equal or higher debt than minor issues"
+            );
         }
     }
 
@@ -321,12 +346,24 @@ mod tests {
     fn test_issue_includes_debt() {
         struct TestRule;
         impl Rule for TestRule {
-            fn id(&self) -> &str { "TEST001" }
-            fn title(&self) -> &str { "Test Rule" }
-            fn severity(&self) -> Severity { Severity::Major }
-            fn category(&self) -> RuleCategory { RuleCategory::Bug }
-            fn debt_minutes(&self) -> u32 { 15 }
-            fn check(&self, _ctx: &AnalysisContext) -> Vec<Issue> { vec![] }
+            fn id(&self) -> &str {
+                "TEST001"
+            }
+            fn title(&self) -> &str {
+                "Test Rule"
+            }
+            fn severity(&self) -> Severity {
+                Severity::Major
+            }
+            fn category(&self) -> RuleCategory {
+                RuleCategory::Bug
+            }
+            fn debt_minutes(&self) -> u32 {
+                15
+            }
+            fn check(&self, _ctx: &AnalysisContext) -> Vec<Issue> {
+                vec![]
+            }
         }
 
         let rule = TestRule;
@@ -339,13 +376,27 @@ mod tests {
     fn test_issue_includes_owasp_and_cwe() {
         struct SecurityTestRule;
         impl Rule for SecurityTestRule {
-            fn id(&self) -> &str { "SEC001" }
-            fn title(&self) -> &str { "Security Test Rule" }
-            fn severity(&self) -> Severity { Severity::Critical }
-            fn category(&self) -> RuleCategory { RuleCategory::Security }
-            fn owasp(&self) -> Option<OwaspCategory> { Some(OwaspCategory::A03Injection) }
-            fn cwe(&self) -> Option<u32> { Some(89) } // SQL Injection
-            fn check(&self, _ctx: &AnalysisContext) -> Vec<Issue> { vec![] }
+            fn id(&self) -> &str {
+                "SEC001"
+            }
+            fn title(&self) -> &str {
+                "Security Test Rule"
+            }
+            fn severity(&self) -> Severity {
+                Severity::Critical
+            }
+            fn category(&self) -> RuleCategory {
+                RuleCategory::Security
+            }
+            fn owasp(&self) -> Option<OwaspCategory> {
+                Some(OwaspCategory::A03Injection)
+            }
+            fn cwe(&self) -> Option<u32> {
+                Some(89)
+            } // SQL Injection
+            fn check(&self, _ctx: &AnalysisContext) -> Vec<Issue> {
+                vec![]
+            }
         }
 
         let rule = SecurityTestRule;

@@ -42,7 +42,10 @@ pub enum HotspotPriority {
 
 impl HotspotPriority {
     pub fn from_probability_and_impact(probability: &str, impact: &str) -> Self {
-        match (probability.to_lowercase().as_str(), impact.to_lowercase().as_str()) {
+        match (
+            probability.to_lowercase().as_str(),
+            impact.to_lowercase().as_str(),
+        ) {
             ("high", "high") => HotspotPriority::High,
             ("high", "medium") | ("medium", "high") => HotspotPriority::High,
             ("high", "low") | ("low", "high") | ("medium", "medium") => HotspotPriority::Medium,
@@ -180,7 +183,11 @@ impl HotspotResult {
 
         // Count by category
         let mut category_counts = std::collections::HashMap::new();
-        for h in high_priority.iter().chain(medium_priority.iter()).chain(low_priority.iter()) {
+        for h in high_priority
+            .iter()
+            .chain(medium_priority.iter())
+            .chain(low_priority.iter())
+        {
             *category_counts.entry(h.category).or_insert(0) += 1;
         }
         let by_category: Vec<_> = category_counts.into_iter().collect();
@@ -198,7 +205,8 @@ impl HotspotResult {
 
     /// Get all hotspots as a flat list
     pub fn all_hotspots(&self) -> Vec<&SecurityHotspot> {
-        self.high_priority.iter()
+        self.high_priority
+            .iter()
             .chain(self.medium_priority.iter())
             .chain(self.low_priority.iter())
             .collect()
@@ -241,9 +249,8 @@ fn is_security_hotspot(issue: &Issue) -> bool {
 
     // Certain rules are always hotspots
     let hotspot_rules = [
-        "S2068", "S1421", "S3649", "S4790", "S2162B", "S1350",
-        "S2078", "S2076", "S2631", "S5131", "S5247", "S2277",
-        "S5547", "S4507", "S5693",
+        "S2068", "S1421", "S3649", "S4790", "S2162B", "S1350", "S2078", "S2076", "S2631", "S5131",
+        "S5247", "S2277", "S5547", "S4507", "S5693",
     ];
 
     hotspot_rules.contains(&issue.rule_id.as_str())
@@ -339,10 +346,22 @@ mod tests {
 
     #[test]
     fn test_category_from_rule_id() {
-        assert_eq!(HotspotCategory::from_rule_id("S2068"), HotspotCategory::Authentication);
-        assert_eq!(HotspotCategory::from_rule_id("S4790"), HotspotCategory::Cryptography);
-        assert_eq!(HotspotCategory::from_rule_id("S3649"), HotspotCategory::Injection);
-        assert_eq!(HotspotCategory::from_rule_id("S9999"), HotspotCategory::Other);
+        assert_eq!(
+            HotspotCategory::from_rule_id("S2068"),
+            HotspotCategory::Authentication
+        );
+        assert_eq!(
+            HotspotCategory::from_rule_id("S4790"),
+            HotspotCategory::Cryptography
+        );
+        assert_eq!(
+            HotspotCategory::from_rule_id("S3649"),
+            HotspotCategory::Injection
+        );
+        assert_eq!(
+            HotspotCategory::from_rule_id("S9999"),
+            HotspotCategory::Other
+        );
     }
 
     #[test]
@@ -370,7 +389,10 @@ mod tests {
             .review(HotspotStatus::Safe, Some("Reviewed and safe".to_string()));
 
         assert_eq!(hotspot.status, HotspotStatus::Safe);
-        assert_eq!(hotspot.review_comment, Some("Reviewed and safe".to_string()));
+        assert_eq!(
+            hotspot.review_comment,
+            Some("Reviewed and safe".to_string())
+        );
     }
 
     // ===== Hotspot Result Tests =====
@@ -387,8 +409,8 @@ mod tests {
     #[test]
     fn test_result_with_hotspots() {
         let result = create_result(vec![
-            create_security_issue("S2068", Severity::Critical),  // High priority
-            create_security_issue("S3649", Severity::Major),     // Medium priority
+            create_security_issue("S2068", Severity::Critical), // High priority
+            create_security_issue("S3649", Severity::Major),    // Medium priority
         ]);
         let hotspot_result = HotspotResult::from_analysis(&result);
 
@@ -412,9 +434,9 @@ mod tests {
     #[test]
     fn test_result_by_category() {
         let result = create_result(vec![
-            create_security_issue("S2068", Severity::Critical),  // Authentication
-            create_security_issue("S1421", Severity::Critical),  // Authentication
-            create_security_issue("S3649", Severity::Major),     // Injection
+            create_security_issue("S2068", Severity::Critical), // Authentication
+            create_security_issue("S1421", Severity::Critical), // Authentication
+            create_security_issue("S3649", Severity::Major),    // Injection
         ]);
         let hotspot_result = HotspotResult::from_analysis(&result);
 

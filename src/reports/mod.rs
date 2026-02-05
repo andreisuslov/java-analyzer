@@ -2,7 +2,7 @@
 //!
 //! Generates analysis reports in various formats (text, JSON, HTML, SARIF).
 
-use crate::{AnalysisResult, Issue, Severity, RuleCategory};
+use crate::{AnalysisResult, Issue, RuleCategory, Severity};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io::Write;
@@ -101,7 +101,11 @@ impl Report {
     }
 
     /// Write report to a writer
-    pub fn write_to<W: Write>(&self, result: &AnalysisResult, writer: &mut W) -> std::io::Result<()> {
+    pub fn write_to<W: Write>(
+        &self,
+        result: &AnalysisResult,
+        writer: &mut W,
+    ) -> std::io::Result<()> {
         let report = self.generate(result);
         writer.write_all(report.as_bytes())
     }
@@ -124,7 +128,13 @@ impl Report {
         // Severity summary
         let severity_counts = result.severity_counts();
         output.push_str("Issues by Severity:\n");
-        for severity in &[Severity::Blocker, Severity::Critical, Severity::Major, Severity::Minor, Severity::Info] {
+        for severity in &[
+            Severity::Blocker,
+            Severity::Critical,
+            Severity::Major,
+            Severity::Minor,
+            Severity::Info,
+        ] {
             let count = severity_counts.get(severity).unwrap_or(&0);
             let label = format!("  {:10}", severity.as_str().to_uppercase());
             output.push_str(&format!("{}: {}\n", label, count));
@@ -215,7 +225,8 @@ impl Report {
         let severity_counts = result.severity_counts();
         let issues_by_file = result.issues_by_file();
 
-        let mut html = String::from(r#"<!DOCTYPE html>
+        let mut html = String::from(
+            r#"<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -256,59 +267,79 @@ impl Report {
         <div class="summary">
             <div class="card">
                 <h3>Files Analyzed</h3>
-                <div class="value">"#);
+                <div class="value">"#,
+        );
 
         html.push_str(&result.files_analyzed.to_string());
-        html.push_str(r#"</div>
+        html.push_str(
+            r#"</div>
             </div>
             <div class="card">
                 <h3>Total Issues</h3>
-                <div class="value">"#);
+                <div class="value">"#,
+        );
 
         html.push_str(&result.issues.len().to_string());
-        html.push_str(r#"</div>
+        html.push_str(
+            r#"</div>
             </div>
             <div class="card">
                 <h3>Analysis Time</h3>
-                <div class="value">"#);
+                <div class="value">"#,
+        );
 
         html.push_str(&format!("{}ms", result.duration_ms));
-        html.push_str(r#"</div>
+        html.push_str(
+            r#"</div>
             </div>
         </div>
 
         <div class="card" style="margin-bottom: 30px;">
             <h3>Issues by Severity</h3>
-            <div class="severity-counts">"#);
+            <div class="severity-counts">"#,
+        );
 
-        for severity in &[Severity::Blocker, Severity::Critical, Severity::Major, Severity::Minor, Severity::Info] {
+        for severity in &[
+            Severity::Blocker,
+            Severity::Critical,
+            Severity::Major,
+            Severity::Minor,
+            Severity::Info,
+        ] {
             let count = severity_counts.get(severity).unwrap_or(&0);
             let class = format!("severity-{}", severity.as_str());
             html.push_str(&format!(
                 r#"<div class="severity-count"><span class="severity-badge {}">{}</span> {}</div>"#,
-                class, severity.as_str().to_uppercase(), count
+                class,
+                severity.as_str().to_uppercase(),
+                count
             ));
         }
 
-        html.push_str(r#"</div>
+        html.push_str(
+            r#"</div>
         </div>
 
-        <h2 style="margin-bottom: 20px;">Issues by File</h2>"#);
+        <h2 style="margin-bottom: 20px;">Issues by File</h2>"#,
+        );
 
         let mut files: Vec<_> = issues_by_file.keys().collect();
         files.sort();
 
         for file in files {
             let issues = &issues_by_file[file];
-            html.push_str(&format!(r#"
+            html.push_str(&format!(
+                r#"
         <div class="file-section">
             <div class="file-header">{} ({} issues)</div>"#,
-                Self::html_escape(file), issues.len()
+                Self::html_escape(file),
+                issues.len()
             ));
 
             for issue in issues {
                 let severity_class = format!("severity-{}", issue.severity.as_str());
-                html.push_str(&format!(r#"
+                html.push_str(&format!(
+                    r#"
             <div class="issue">
                 <div class="issue-location">
                     <span class="severity-badge {}">{}  </span>
@@ -326,8 +357,11 @@ impl Report {
                 ));
 
                 if let Some(ref snippet) = issue.code_snippet {
-                    html.push_str(&format!(r#"
-                <div class="snippet">{}</div>"#, Self::html_escape(snippet)));
+                    html.push_str(&format!(
+                        r#"
+                <div class="snippet">{}</div>"#,
+                        Self::html_escape(snippet)
+                    ));
                 }
 
                 html.push_str("\n            </div>");
@@ -336,10 +370,12 @@ impl Report {
             html.push_str("\n        </div>");
         }
 
-        html.push_str(r#"
+        html.push_str(
+            r#"
     </div>
 </body>
-</html>"#);
+</html>"#,
+        );
 
         html
     }
@@ -420,8 +456,10 @@ impl Report {
             }
         }
 
-        let results: Vec<SarifResult> = result.issues.iter().map(|issue| {
-            SarifResult {
+        let results: Vec<SarifResult> = result
+            .issues
+            .iter()
+            .map(|issue| SarifResult {
                 rule_id: issue.rule_id.clone(),
                 level: severity_to_sarif_level(issue.severity).to_string(),
                 message: SarifMessage {
@@ -438,8 +476,8 @@ impl Report {
                         },
                     },
                 }],
-            }
-        }).collect();
+            })
+            .collect();
 
         let report = SarifReport {
             schema: "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json".to_string(),
@@ -484,16 +522,32 @@ impl Report {
 
         md.push_str("# Java Static Analysis Report\n\n");
         md.push_str("## Summary\n\n");
-        md.push_str(&format!("- **Files analyzed:** {}\n", result.files_analyzed));
+        md.push_str(&format!(
+            "- **Files analyzed:** {}\n",
+            result.files_analyzed
+        ));
         md.push_str(&format!("- **Total issues:** {}\n", result.issues.len()));
-        md.push_str(&format!("- **Analysis time:** {}ms\n\n", result.duration_ms));
+        md.push_str(&format!(
+            "- **Analysis time:** {}ms\n\n",
+            result.duration_ms
+        ));
 
         md.push_str("## Issues by Severity\n\n");
         md.push_str("| Severity | Count |\n");
         md.push_str("|----------|-------|\n");
-        for severity in &[Severity::Blocker, Severity::Critical, Severity::Major, Severity::Minor, Severity::Info] {
+        for severity in &[
+            Severity::Blocker,
+            Severity::Critical,
+            Severity::Major,
+            Severity::Minor,
+            Severity::Info,
+        ] {
             let count = severity_counts.get(severity).unwrap_or(&0);
-            md.push_str(&format!("| {} | {} |\n", severity.as_str().to_uppercase(), count));
+            md.push_str(&format!(
+                "| {} | {} |\n",
+                severity.as_str().to_uppercase(),
+                count
+            ));
         }
         md.push('\n');
 
@@ -593,7 +647,9 @@ mod tests {
     #[test]
     fn test_json_report() {
         let result = create_test_result();
-        let report = Report::new().with_format(ReportFormat::Json).generate(&result);
+        let report = Report::new()
+            .with_format(ReportFormat::Json)
+            .generate(&result);
         let json: serde_json::Value = serde_json::from_str(&report).unwrap();
         assert_eq!(json["summary"]["files_analyzed"], 5);
         assert_eq!(json["summary"]["total_issues"], 2);
@@ -602,7 +658,9 @@ mod tests {
     #[test]
     fn test_html_report() {
         let result = create_test_result();
-        let report = Report::new().with_format(ReportFormat::Html).generate(&result);
+        let report = Report::new()
+            .with_format(ReportFormat::Html)
+            .generate(&result);
         assert!(report.contains("<!DOCTYPE html>"));
         assert!(report.contains("Java Static Analysis Report"));
         assert!(report.contains("Test.java"));
@@ -611,7 +669,9 @@ mod tests {
     #[test]
     fn test_csv_report() {
         let result = create_test_result();
-        let report = Report::new().with_format(ReportFormat::Csv).generate(&result);
+        let report = Report::new()
+            .with_format(ReportFormat::Csv)
+            .generate(&result);
         assert!(report.contains("file,line,column"));
         assert!(report.contains("\"Test.java\",10,5"));
     }
@@ -619,7 +679,9 @@ mod tests {
     #[test]
     fn test_markdown_report() {
         let result = create_test_result();
-        let report = Report::new().with_format(ReportFormat::Markdown).generate(&result);
+        let report = Report::new()
+            .with_format(ReportFormat::Markdown)
+            .generate(&result);
         assert!(report.contains("# Java Static Analysis Report"));
         assert!(report.contains("| Severity | Count |"));
     }
@@ -627,7 +689,9 @@ mod tests {
     #[test]
     fn test_sarif_report() {
         let result = create_test_result();
-        let report = Report::new().with_format(ReportFormat::Sarif).generate(&result);
+        let report = Report::new()
+            .with_format(ReportFormat::Sarif)
+            .generate(&result);
         let json: serde_json::Value = serde_json::from_str(&report).unwrap();
         assert_eq!(json["version"], "2.1.0");
         assert!(json["runs"][0]["tool"]["driver"]["name"] == "java-analyzer");

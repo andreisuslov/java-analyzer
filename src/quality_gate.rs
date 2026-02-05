@@ -3,8 +3,8 @@
 //! Quality gates define pass/fail criteria based on analysis metrics.
 
 use serde::{Deserialize, Serialize};
-use std::path::Path;
 use std::fs;
+use std::path::Path;
 
 use crate::{AnalysisResult, Severity};
 
@@ -20,29 +20,19 @@ pub enum QualityCondition {
     },
     /// Maximum total number of issues
     #[serde(rename = "max_total_issues")]
-    MaxTotalIssues {
-        threshold: usize,
-    },
+    MaxTotalIssues { threshold: usize },
     /// No issues of a given severity or higher
     #[serde(rename = "no_issues_above")]
-    NoIssuesAbove {
-        severity: Severity,
-    },
+    NoIssuesAbove { severity: Severity },
     /// Maximum technical debt in minutes
     #[serde(rename = "max_debt_minutes")]
-    MaxDebtMinutes {
-        threshold: u32,
-    },
+    MaxDebtMinutes { threshold: u32 },
     /// Maximum number of new issues (for differential analysis)
     #[serde(rename = "max_new_issues")]
-    MaxNewIssues {
-        threshold: usize,
-    },
+    MaxNewIssues { threshold: usize },
     /// Minimum percentage of issues resolved (for tracking)
     #[serde(rename = "min_issues_resolved_percent")]
-    MinIssuesResolvedPercent {
-        threshold: f64,
-    },
+    MinIssuesResolvedPercent { threshold: f64 },
 }
 
 /// Result of evaluating a single condition
@@ -88,8 +78,7 @@ impl QualityGate {
         let content = fs::read_to_string(path)
             .map_err(|e| format!("Failed to read quality gate file: {}", e))?;
 
-        serde_json::from_str(&content)
-            .map_err(|e| format!("Failed to parse quality gate: {}", e))
+        serde_json::from_str(&content).map_err(|e| format!("Failed to parse quality gate: {}", e))
     }
 
     /// Load quality gate from a TOML file
@@ -97,8 +86,7 @@ impl QualityGate {
         let content = fs::read_to_string(path)
             .map_err(|e| format!("Failed to read quality gate file: {}", e))?;
 
-        toml::from_str(&content)
-            .map_err(|e| format!("Failed to parse quality gate: {}", e))
+        toml::from_str(&content).map_err(|e| format!("Failed to parse quality gate: {}", e))
     }
 
     /// Evaluate the quality gate against analysis results
@@ -121,10 +109,19 @@ impl QualityGate {
         }
     }
 
-    fn evaluate_condition(&self, condition: &QualityCondition, result: &AnalysisResult) -> ConditionResult {
+    fn evaluate_condition(
+        &self,
+        condition: &QualityCondition,
+        result: &AnalysisResult,
+    ) -> ConditionResult {
         match condition {
-            QualityCondition::MaxIssues { severity, threshold } => {
-                let count = result.issues.iter()
+            QualityCondition::MaxIssues {
+                severity,
+                threshold,
+            } => {
+                let count = result
+                    .issues
+                    .iter()
                     .filter(|i| i.severity == *severity)
                     .count();
                 ConditionResult {
@@ -135,7 +132,9 @@ impl QualityGate {
                     message: format!(
                         "{} issues with severity {:?}: {} (max: {})",
                         if count <= *threshold { "✓" } else { "✗" },
-                        severity, count, threshold
+                        severity,
+                        count,
+                        threshold
                     ),
                 }
             }
@@ -149,12 +148,15 @@ impl QualityGate {
                     message: format!(
                         "{} Total issues: {} (max: {})",
                         if count <= *threshold { "✓" } else { "✗" },
-                        count, threshold
+                        count,
+                        threshold
                     ),
                 }
             }
             QualityCondition::NoIssuesAbove { severity } => {
-                let count = result.issues.iter()
+                let count = result
+                    .issues
+                    .iter()
                     .filter(|i| i.severity >= *severity)
                     .count();
                 ConditionResult {
@@ -165,14 +167,13 @@ impl QualityGate {
                     message: format!(
                         "{} Issues with severity {:?} or higher: {}",
                         if count == 0 { "✓" } else { "✗" },
-                        severity, count
+                        severity,
+                        count
                     ),
                 }
             }
             QualityCondition::MaxDebtMinutes { threshold } => {
-                let total_debt: u32 = result.issues.iter()
-                    .map(|i| i.debt_minutes)
-                    .sum();
+                let total_debt: u32 = result.issues.iter().map(|i| i.debt_minutes).sum();
                 ConditionResult {
                     condition: condition.clone(),
                     passed: total_debt <= *threshold,
@@ -180,8 +181,13 @@ impl QualityGate {
                     threshold_value: threshold.to_string(),
                     message: format!(
                         "{} Technical debt: {} min (max: {} min)",
-                        if total_debt <= *threshold { "✓" } else { "✗" },
-                        total_debt, threshold
+                        if total_debt <= *threshold {
+                            "✓"
+                        } else {
+                            "✗"
+                        },
+                        total_debt,
+                        threshold
                     ),
                 }
             }
@@ -196,7 +202,8 @@ impl QualityGate {
                     message: format!(
                         "{} New issues: {} (max: {})",
                         if count <= *threshold { "✓" } else { "✗" },
-                        count, threshold
+                        count,
+                        threshold
                     ),
                 }
             }
@@ -227,7 +234,14 @@ impl QualityGateResult {
     pub fn summary(&self) -> String {
         let mut output = String::new();
         output.push_str(&format!("Quality Gate: {}\n", self.gate_name));
-        output.push_str(&format!("Status: {}\n\n", if self.passed { "PASSED ✓" } else { "FAILED ✗" }));
+        output.push_str(&format!(
+            "Status: {}\n\n",
+            if self.passed {
+                "PASSED ✓"
+            } else {
+                "FAILED ✗"
+            }
+        ));
 
         output.push_str("Conditions:\n");
         for cond in &self.conditions {
@@ -244,45 +258,40 @@ impl QualityGate {
     pub fn strict() -> Self {
         Self::new("Strict")
             .add_condition(QualityCondition::NoIssuesAbove {
-                severity: Severity::Critical
+                severity: Severity::Critical,
             })
             .add_condition(QualityCondition::MaxIssues {
                 severity: Severity::Major,
-                threshold: 10
+                threshold: 10,
             })
-            .add_condition(QualityCondition::MaxDebtMinutes {
-                threshold: 60
-            })
+            .add_condition(QualityCondition::MaxDebtMinutes { threshold: 60 })
     }
 
     /// Standard quality gate - no blockers, limited criticals
     pub fn standard() -> Self {
         Self::new("Standard")
             .add_condition(QualityCondition::NoIssuesAbove {
-                severity: Severity::Blocker
+                severity: Severity::Blocker,
             })
             .add_condition(QualityCondition::MaxIssues {
                 severity: Severity::Critical,
-                threshold: 5
+                threshold: 5,
             })
-            .add_condition(QualityCondition::MaxDebtMinutes {
-                threshold: 120
-            })
+            .add_condition(QualityCondition::MaxDebtMinutes { threshold: 120 })
     }
 
     /// Lenient quality gate - only blocks on blockers
     pub fn lenient() -> Self {
-        Self::new("Lenient")
-            .add_condition(QualityCondition::NoIssuesAbove {
-                severity: Severity::Blocker
-            })
+        Self::new("Lenient").add_condition(QualityCondition::NoIssuesAbove {
+            severity: Severity::Blocker,
+        })
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::rules::{RuleCategory, Issue, OwaspCategory};
+    use crate::rules::{Issue, OwaspCategory, RuleCategory};
 
     fn create_test_issue(severity: Severity, debt: u32) -> Issue {
         Issue {
@@ -323,9 +332,7 @@ mod tests {
     #[test]
     fn test_quality_gate_fails_on_blocker() {
         let gate = QualityGate::strict();
-        let result = create_test_result(vec![
-            create_test_issue(Severity::Blocker, 30),
-        ]);
+        let result = create_test_result(vec![create_test_issue(Severity::Blocker, 30)]);
 
         let gate_result = gate.evaluate(&result);
         assert!(!gate_result.passed);
@@ -334,9 +341,7 @@ mod tests {
     #[test]
     fn test_quality_gate_fails_on_critical() {
         let gate = QualityGate::strict();
-        let result = create_test_result(vec![
-            create_test_issue(Severity::Critical, 20),
-        ]);
+        let result = create_test_result(vec![create_test_issue(Severity::Critical, 20)]);
 
         let gate_result = gate.evaluate(&result);
         assert!(!gate_result.passed);
@@ -356,11 +361,10 @@ mod tests {
 
     #[test]
     fn test_max_issues_condition() {
-        let gate = QualityGate::new("Test")
-            .add_condition(QualityCondition::MaxIssues {
-                severity: Severity::Major,
-                threshold: 2,
-            });
+        let gate = QualityGate::new("Test").add_condition(QualityCondition::MaxIssues {
+            severity: Severity::Major,
+            threshold: 2,
+        });
 
         // Should pass with 2 major issues
         let result = create_test_result(vec![
@@ -446,9 +450,7 @@ mod tests {
         assert!(gate.evaluate(&result).passed);
 
         // Should fail on blocker
-        let result = create_test_result(vec![
-            create_test_issue(Severity::Blocker, 30),
-        ]);
+        let result = create_test_result(vec![create_test_issue(Severity::Blocker, 30)]);
         assert!(!gate.evaluate(&result).passed);
     }
 

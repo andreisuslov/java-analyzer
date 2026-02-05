@@ -40,7 +40,8 @@ impl FileCoverage {
     pub fn calculate_coverage(&mut self) {
         self.total_lines = self.covered_lines.len() + self.uncovered_lines.len();
         if self.total_lines > 0 {
-            self.line_coverage = (self.covered_lines.len() as f64 / self.total_lines as f64) * 100.0;
+            self.line_coverage =
+                (self.covered_lines.len() as f64 / self.total_lines as f64) * 100.0;
         }
     }
 }
@@ -93,7 +94,8 @@ impl CoverageReport {
 
     /// Get files below coverage threshold
     pub fn files_below_threshold(&self, min_coverage: f64) -> Vec<&FileCoverage> {
-        self.files.values()
+        self.files
+            .values()
             .filter(|f| f.line_coverage < min_coverage)
             .collect()
     }
@@ -130,9 +132,7 @@ pub fn parse_lcov(content: &str) -> Result<CoverageReport, CoverageError> {
         } else if line.starts_with("DA:") {
             // Line data: DA:line_number,hit_count
             if let Some(ref mut file) = current_file {
-                let parts: Vec<&str> = line.strip_prefix("DA:").unwrap_or("")
-                    .split(',')
-                    .collect();
+                let parts: Vec<&str> = line.strip_prefix("DA:").unwrap_or("").split(',').collect();
                 if parts.len() >= 2 {
                     if let Ok(line_num) = parts[0].parse::<usize>() {
                         if let Ok(hits) = parts[1].parse::<usize>() {
@@ -253,12 +253,9 @@ pub fn parse_jacoco_xml(content: &str) -> Result<CoverageReport, CoverageError> 
 
 /// Load coverage from file, auto-detecting format
 pub fn load_coverage(path: &Path) -> Result<CoverageReport, CoverageError> {
-    let content = fs::read_to_string(path)
-        .map_err(|e| CoverageError::IoError(e.to_string()))?;
+    let content = fs::read_to_string(path).map_err(|e| CoverageError::IoError(e.to_string()))?;
 
-    let extension = path.extension()
-        .and_then(|e| e.to_str())
-        .unwrap_or("");
+    let extension = path.extension().and_then(|e| e.to_str()).unwrap_or("");
 
     match extension.to_lowercase().as_str() {
         "xml" => parse_jacoco_xml(&content),

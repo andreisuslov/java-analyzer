@@ -30,7 +30,8 @@ impl CacheEntry {
     /// Check if the cache entry is still valid for the given file
     pub fn is_valid(&self, path: &Path) -> bool {
         if let Ok(metadata) = fs::metadata(path) {
-            let modified = metadata.modified()
+            let modified = metadata
+                .modified()
                 .ok()
                 .and_then(|t| t.duration_since(SystemTime::UNIX_EPOCH).ok())
                 .map(|d| d.as_secs())
@@ -72,32 +73,30 @@ impl AnalysisCache {
 
     /// Load cache from file
     pub fn load(path: &Path) -> Result<Self, CacheError> {
-        let content = fs::read_to_string(path)
-            .map_err(|e| CacheError::IoError(e.to_string()))?;
+        let content = fs::read_to_string(path).map_err(|e| CacheError::IoError(e.to_string()))?;
 
-        serde_json::from_str(&content)
-            .map_err(|e| CacheError::ParseError(e.to_string()))
+        serde_json::from_str(&content).map_err(|e| CacheError::ParseError(e.to_string()))
     }
 
     /// Save cache to file
     pub fn save(&self, path: &Path) -> Result<(), CacheError> {
         // Ensure parent directory exists
         if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent)
-                .map_err(|e| CacheError::IoError(e.to_string()))?;
+            fs::create_dir_all(parent).map_err(|e| CacheError::IoError(e.to_string()))?;
         }
 
         let json = serde_json::to_string_pretty(self)
             .map_err(|e| CacheError::ParseError(e.to_string()))?;
 
-        fs::write(path, json)
-            .map_err(|e| CacheError::IoError(e.to_string()))
+        fs::write(path, json).map_err(|e| CacheError::IoError(e.to_string()))
     }
 
     /// Get cached issues for a file if valid
     pub fn get(&self, path: &Path) -> Option<&CacheEntry> {
         let path_str = path.to_string_lossy().to_string();
-        self.entries.get(&path_str).filter(|entry| entry.is_valid(path))
+        self.entries
+            .get(&path_str)
+            .filter(|entry| entry.is_valid(path))
     }
 
     /// Update cache entry for a file
@@ -105,7 +104,8 @@ impl AnalysisCache {
         let path_str = path.to_string_lossy().to_string();
 
         let (modified_time, file_size, content_hash) = if let Ok(metadata) = fs::metadata(path) {
-            let modified = metadata.modified()
+            let modified = metadata
+                .modified()
                 .ok()
                 .and_then(|t| t.duration_since(SystemTime::UNIX_EPOCH).ok())
                 .map(|d| d.as_secs())
@@ -126,13 +126,16 @@ impl AnalysisCache {
             .map(|d| d.as_secs())
             .unwrap_or(0);
 
-        self.entries.insert(path_str, CacheEntry {
-            content_hash,
-            modified_time,
-            file_size,
-            issues,
-            cached_at,
-        });
+        self.entries.insert(
+            path_str,
+            CacheEntry {
+                content_hash,
+                modified_time,
+                file_size,
+                issues,
+                cached_at,
+            },
+        );
     }
 
     /// Remove entry for a file
@@ -164,7 +167,8 @@ impl AnalysisCache {
 
     /// Prune entries for files that no longer exist
     pub fn prune(&mut self) {
-        let to_remove: Vec<String> = self.entries
+        let to_remove: Vec<String> = self
+            .entries
             .keys()
             .filter(|path| !Path::new(path).exists())
             .cloned()
@@ -203,8 +207,8 @@ impl std::fmt::Display for CacheError {
 
 /// Simple hash function for file metadata
 fn hash_file_metadata(path: &str, size: u64, modified: u64) -> u64 {
-    use std::hash::{Hash, Hasher};
     use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
 
     let mut hasher = DefaultHasher::new();
     path.hash(&mut hasher);
@@ -215,8 +219,8 @@ fn hash_file_metadata(path: &str, size: u64, modified: u64) -> u64 {
 
 /// Hash configuration for cache invalidation
 pub fn hash_config(config: &crate::AnalyzerConfig) -> u64 {
-    use std::hash::{Hash, Hasher};
     use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
 
     let mut hasher = DefaultHasher::new();
 
@@ -379,10 +383,10 @@ mod tests {
         for i in 0..3 {
             let file_path = temp_dir.path().join(format!("test{}.java", i));
             fs::write(&file_path, format!("public class Test{} {{}}", i)).unwrap();
-            cache.update(&file_path, vec![
-                create_test_issue("S100"),
-                create_test_issue("S101"),
-            ]);
+            cache.update(
+                &file_path,
+                vec![create_test_issue("S100"), create_test_issue("S101")],
+            );
         }
 
         let stats = cache.stats();
@@ -403,13 +407,16 @@ mod tests {
         cache.update(&file_path, vec![create_test_issue("S100")]);
 
         // Add a fake entry for a non-existent file
-        cache.entries.insert("/nonexistent/file.java".to_string(), CacheEntry {
-            content_hash: 0,
-            modified_time: 0,
-            file_size: 0,
-            issues: vec![],
-            cached_at: 0,
-        });
+        cache.entries.insert(
+            "/nonexistent/file.java".to_string(),
+            CacheEntry {
+                content_hash: 0,
+                modified_time: 0,
+                file_size: 0,
+                issues: vec![],
+                cached_at: 0,
+            },
+        );
 
         assert_eq!(cache.entries.len(), 2);
 
@@ -430,7 +437,10 @@ mod tests {
         cache.update(&file_path, vec![create_test_issue("S100")]);
 
         // Entry should be valid for unchanged file
-        let entry = cache.entries.get(&file_path.to_string_lossy().to_string()).unwrap();
+        let entry = cache
+            .entries
+            .get(&file_path.to_string_lossy().to_string())
+            .unwrap();
         assert!(entry.is_valid(&file_path));
     }
 
@@ -448,7 +458,10 @@ mod tests {
         fs::write(&file_path, "public class Test { void foo() {} }").unwrap();
 
         // Entry should be invalid now
-        let entry = cache.entries.get(&file_path.to_string_lossy().to_string()).unwrap();
+        let entry = cache
+            .entries
+            .get(&file_path.to_string_lossy().to_string())
+            .unwrap();
         assert!(!entry.is_valid(&file_path));
     }
 

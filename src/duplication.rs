@@ -5,9 +5,9 @@
 //! - Token-based comparison for similar code
 //! - Configurable thresholds
 
+use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
-use std::collections::hash_map::DefaultHasher;
 
 use serde::{Deserialize, Serialize};
 
@@ -76,7 +76,12 @@ pub struct DuplicateBlock {
 }
 
 impl DuplicateBlock {
-    pub fn new(locations: Vec<CodeLocation>, line_count: usize, token_count: usize, hash: u64) -> Self {
+    pub fn new(
+        locations: Vec<CodeLocation>,
+        line_count: usize,
+        token_count: usize,
+        hash: u64,
+    ) -> Self {
         Self {
             locations,
             line_count,
@@ -120,7 +125,8 @@ impl DuplicationResult {
 
     pub fn calculate_percentage(&mut self) {
         if self.total_lines > 0 {
-            self.duplication_percentage = (self.duplicated_lines as f64 / self.total_lines as f64) * 100.0;
+            self.duplication_percentage =
+                (self.duplicated_lines as f64 / self.total_lines as f64) * 100.0;
         }
     }
 }
@@ -178,9 +184,7 @@ impl DuplicationDetector {
     /// Analyze a single file for internal duplicates
     pub fn analyze_file(&self, file_path: &str, content: &str) -> Vec<DuplicateBlock> {
         let lines: Vec<&str> = content.lines().collect();
-        let normalized: Vec<String> = lines.iter()
-            .map(|l| self.normalize_line(l))
-            .collect();
+        let normalized: Vec<String> = lines.iter().map(|l| self.normalize_line(l)).collect();
 
         let mut hash_to_locations: HashMap<u64, Vec<CodeLocation>> = HashMap::new();
         let min_lines = self.config.min_lines;
@@ -197,13 +201,12 @@ impl DuplicationDetector {
             let hash = self.hash_lines(&window);
             let location = CodeLocation::new(file_path, start + 1, start + min_lines);
 
-            hash_to_locations.entry(hash)
-                .or_default()
-                .push(location);
+            hash_to_locations.entry(hash).or_default().push(location);
         }
 
         // Convert to duplicate blocks (only those appearing more than once)
-        hash_to_locations.into_iter()
+        hash_to_locations
+            .into_iter()
             .filter(|(_, locs)| locs.len() > 1)
             .map(|(hash, locations)| {
                 let line_count = min_lines;
@@ -224,9 +227,7 @@ impl DuplicationDetector {
             let lines: Vec<&str> = content.lines().collect();
             result.total_lines += lines.len();
 
-            let normalized: Vec<String> = lines.iter()
-                .map(|l| self.normalize_line(l))
-                .collect();
+            let normalized: Vec<String> = lines.iter().map(|l| self.normalize_line(l)).collect();
 
             // Sliding window
             for start in 0..normalized.len().saturating_sub(min_lines - 1) {
@@ -242,7 +243,8 @@ impl DuplicationDetector {
                 // Store sample code
                 let sample = lines[start..start + min_lines].join("\n");
 
-                hash_to_locations.entry(hash)
+                hash_to_locations
+                    .entry(hash)
                     .or_default()
                     .push((location, sample));
             }
@@ -253,12 +255,12 @@ impl DuplicationDetector {
 
         for (hash, locations_with_samples) in hash_to_locations {
             if locations_with_samples.len() > 1 {
-                let locations: Vec<CodeLocation> = locations_with_samples.iter()
+                let locations: Vec<CodeLocation> = locations_with_samples
+                    .iter()
                     .map(|(loc, _)| loc.clone())
                     .collect();
 
-                let sample = locations_with_samples.first()
-                    .map(|(_, s)| s.clone());
+                let sample = locations_with_samples.first().map(|(_, s)| s.clone());
 
                 let mut block = DuplicateBlock::new(locations.clone(), min_lines, 0, hash);
                 block.code_sample = sample;
@@ -382,7 +384,10 @@ public void method2() {
 }
 "#;
         let duplicates = detector.analyze_file("test.java", content);
-        assert!(!duplicates.is_empty(), "Should detect duplicate code blocks");
+        assert!(
+            !duplicates.is_empty(),
+            "Should detect duplicate code blocks"
+        );
     }
 
     #[test]
@@ -405,7 +410,8 @@ public void method2() {
 "#;
         let duplicates = detector.analyze_file("test.java", content);
         // Check that no significant duplicates are found (some small ones might be)
-        let significant = duplicates.iter()
+        let significant = duplicates
+            .iter()
             .filter(|d| d.duplicate_count() > 1)
             .count();
         // The code is different enough that there shouldn't be many duplicates
@@ -435,7 +441,10 @@ public void method2() {
 }
 "#;
         let duplicates = detector.analyze_file("test.java", content);
-        assert!(!duplicates.is_empty(), "Should detect duplicates despite indentation differences");
+        assert!(
+            !duplicates.is_empty(),
+            "Should detect duplicates despite indentation differences"
+        );
     }
 
     // ===== Multi-File Duplicate Detection Tests =====
@@ -448,25 +457,36 @@ public void method2() {
         });
 
         let files = vec![
-            ("File1.java".to_string(), r#"
+            (
+                "File1.java".to_string(),
+                r#"
 public void method1() {
     int x = 1;
     int y = 2;
     int z = x + y;
 }
-"#.to_string()),
-            ("File2.java".to_string(), r#"
+"#
+                .to_string(),
+            ),
+            (
+                "File2.java".to_string(),
+                r#"
 public void method2() {
     int x = 1;
     int y = 2;
     int z = x + y;
 }
-"#.to_string()),
+"#
+                .to_string(),
+            ),
         ];
 
         let result = detector.analyze_files(&files);
         assert_eq!(result.files_analyzed, 2);
-        assert!(!result.duplicates.is_empty(), "Should detect cross-file duplicates");
+        assert!(
+            !result.duplicates.is_empty(),
+            "Should detect cross-file duplicates"
+        );
     }
 
     #[test]
@@ -477,8 +497,14 @@ public void method2() {
         });
 
         let files = vec![
-            ("File1.java".to_string(), "int x = 1;\nint y = 2;\nint z = 3;\nint w = 4;".to_string()),
-            ("File2.java".to_string(), "int x = 1;\nint y = 2;\nint a = 5;\nint b = 6;".to_string()),
+            (
+                "File1.java".to_string(),
+                "int x = 1;\nint y = 2;\nint z = 3;\nint w = 4;".to_string(),
+            ),
+            (
+                "File2.java".to_string(),
+                "int x = 1;\nint y = 2;\nint a = 5;\nint b = 6;".to_string(),
+            ),
         ];
 
         let result = detector.analyze_files(&files);

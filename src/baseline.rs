@@ -61,7 +61,8 @@ pub struct Baseline {
 impl Baseline {
     /// Create a new baseline from analysis results
     pub fn from_analysis(result: &AnalysisResult) -> Self {
-        let fingerprints: Vec<IssueFingerprint> = result.issues
+        let fingerprints: Vec<IssueFingerprint> = result
+            .issues
             .iter()
             .map(IssueFingerprint::from_issue)
             .collect();
@@ -85,17 +86,15 @@ impl Baseline {
         let json = serde_json::to_string_pretty(self)
             .map_err(|e| format!("Failed to serialize baseline: {}", e))?;
 
-        fs::write(path, json)
-            .map_err(|e| format!("Failed to write baseline file: {}", e))
+        fs::write(path, json).map_err(|e| format!("Failed to write baseline file: {}", e))
     }
 
     /// Load baseline from a JSON file
     pub fn load(path: &Path) -> Result<Self, String> {
-        let content = fs::read_to_string(path)
-            .map_err(|e| format!("Failed to read baseline file: {}", e))?;
+        let content =
+            fs::read_to_string(path).map_err(|e| format!("Failed to read baseline file: {}", e))?;
 
-        serde_json::from_str(&content)
-            .map_err(|e| format!("Failed to parse baseline: {}", e))
+        serde_json::from_str(&content).map_err(|e| format!("Failed to parse baseline: {}", e))
     }
 
     /// Get the set of fingerprints for fast lookup
@@ -167,7 +166,8 @@ pub fn compare_with_baseline(current: &AnalysisResult, baseline: &Baseline) -> D
     }
 
     // Find fixed issues (in baseline but not in current)
-    let fixed_issues: Vec<IssueFingerprint> = baseline.fingerprints
+    let fixed_issues: Vec<IssueFingerprint> = baseline
+        .fingerprints
         .iter()
         .filter(|fp| !current_fingerprints.contains(fp))
         .cloned()
@@ -273,8 +273,7 @@ mod tests {
     #[test]
     fn test_baseline_with_description() {
         let result = create_test_result(vec![]);
-        let baseline = Baseline::from_analysis(&result)
-            .with_description("Initial baseline");
+        let baseline = Baseline::from_analysis(&result).with_description("Initial baseline");
 
         assert_eq!(baseline.description, Some("Initial baseline".to_string()));
     }
@@ -316,14 +315,12 @@ mod tests {
 
     #[test]
     fn test_new_issues_detected() {
-        let baseline_result = create_test_result(vec![
-            create_test_issue("S100", "Test.java", 10),
-        ]);
+        let baseline_result = create_test_result(vec![create_test_issue("S100", "Test.java", 10)]);
         let baseline = Baseline::from_analysis(&baseline_result);
 
         let current_result = create_test_result(vec![
             create_test_issue("S100", "Test.java", 10),
-            create_test_issue("S101", "Test.java", 20),  // New issue
+            create_test_issue("S101", "Test.java", 20), // New issue
         ]);
 
         let diff = compare_with_baseline(&current_result, &baseline);
@@ -366,10 +363,10 @@ mod tests {
         let baseline = Baseline::from_analysis(&baseline_result);
 
         let current_result = create_test_result(vec![
-            create_test_issue("S100", "Test.java", 10),  // Unchanged
+            create_test_issue("S100", "Test.java", 10), // Unchanged
             // S101 was fixed
-            create_test_issue("S102", "Test.java", 30),  // New
-            create_test_issue("S103", "Test.java", 40),  // New
+            create_test_issue("S102", "Test.java", 30), // New
+            create_test_issue("S103", "Test.java", 40), // New
         ]);
 
         let diff = compare_with_baseline(&current_result, &baseline);
@@ -378,7 +375,7 @@ mod tests {
         assert_eq!(diff.fixed_count, 1);
         assert_eq!(diff.unchanged_count, 1);
         assert!(diff.has_new_issues());
-        assert_eq!(diff.net_change(), 1);  // 2 new - 1 fixed = +1
+        assert_eq!(diff.net_change(), 1); // 2 new - 1 fixed = +1
     }
 
     #[test]
@@ -418,9 +415,7 @@ mod tests {
 
     #[test]
     fn test_differential_summary() {
-        let baseline_result = create_test_result(vec![
-            create_test_issue("S100", "Test.java", 10),
-        ]);
+        let baseline_result = create_test_result(vec![create_test_issue("S100", "Test.java", 10)]);
         let baseline = Baseline::from_analysis(&baseline_result);
 
         let current_result = create_test_result(vec![
@@ -440,13 +435,11 @@ mod tests {
 
     #[test]
     fn test_same_rule_different_files() {
-        let baseline_result = create_test_result(vec![
-            create_test_issue("S100", "File1.java", 10),
-        ]);
+        let baseline_result = create_test_result(vec![create_test_issue("S100", "File1.java", 10)]);
         let baseline = Baseline::from_analysis(&baseline_result);
 
         let current_result = create_test_result(vec![
-            create_test_issue("S100", "File2.java", 10),  // Different file
+            create_test_issue("S100", "File2.java", 10), // Different file
         ]);
 
         let diff = compare_with_baseline(&current_result, &baseline);
@@ -457,13 +450,11 @@ mod tests {
 
     #[test]
     fn test_same_location_different_rules() {
-        let baseline_result = create_test_result(vec![
-            create_test_issue("S100", "Test.java", 10),
-        ]);
+        let baseline_result = create_test_result(vec![create_test_issue("S100", "Test.java", 10)]);
         let baseline = Baseline::from_analysis(&baseline_result);
 
         let current_result = create_test_result(vec![
-            create_test_issue("S101", "Test.java", 10),  // Different rule
+            create_test_issue("S101", "Test.java", 10), // Different rule
         ]);
 
         let diff = compare_with_baseline(&current_result, &baseline);

@@ -2,15 +2,16 @@
 //!
 //! Helper functions for working with tree-sitter parsed Java AST.
 
-use tree_sitter::{Node, Tree};
 use once_cell::sync::Lazy;
 use regex::Regex;
 use std::collections::HashMap;
+use tree_sitter::{Node, Tree};
 
 /// Get Java parser
 pub fn get_parser() -> tree_sitter::Parser {
     let mut parser = tree_sitter::Parser::new();
-    parser.set_language(tree_sitter_java::language())
+    parser
+        .set_language(tree_sitter_java::language())
         .expect("Failed to load Java grammar");
     parser
 }
@@ -149,19 +150,23 @@ pub fn extract_class_info<'a>(node: Node<'a>, source: &str) -> Option<ClassInfo>
         return None;
     }
 
-    let name = node.find_child(kinds::IDENTIFIER)
+    let name = node
+        .find_child(kinds::IDENTIFIER)
         .map(|n| n.text(source).to_string())?;
 
-    let modifiers = node.find_child(kinds::MODIFIERS)
+    let modifiers = node
+        .find_child(kinds::MODIFIERS)
         .map(|n| extract_modifiers(n, source))
         .unwrap_or_default();
 
-    let methods: Vec<MethodInfo> = node.find_descendants(kinds::METHOD_DECLARATION)
+    let methods: Vec<MethodInfo> = node
+        .find_descendants(kinds::METHOD_DECLARATION)
         .iter()
         .filter_map(|m| extract_method_info(*m, source))
         .collect();
 
-    let fields: Vec<FieldInfo> = node.find_descendants(kinds::FIELD_DECLARATION)
+    let fields: Vec<FieldInfo> = node
+        .find_descendants(kinds::FIELD_DECLARATION)
         .iter()
         .filter_map(|f| extract_field_info(*f, source))
         .collect();
@@ -181,16 +186,22 @@ pub fn extract_method_info<'a>(node: Node<'a>, source: &str) -> Option<MethodInf
         return None;
     }
 
-    let name = node.find_child(kinds::IDENTIFIER)
+    let name = node
+        .find_child(kinds::IDENTIFIER)
         .map(|n| n.text(source).to_string())?;
 
-    let modifiers = node.find_child(kinds::MODIFIERS)
+    let modifiers = node
+        .find_child(kinds::MODIFIERS)
         .map(|n| extract_modifiers(n, source))
         .unwrap_or_default();
 
-    let parameters: Vec<String> = node.find_descendants(kinds::FORMAL_PARAMETER)
+    let parameters: Vec<String> = node
+        .find_descendants(kinds::FORMAL_PARAMETER)
         .iter()
-        .filter_map(|p| p.find_child(kinds::IDENTIFIER).map(|i| i.text(source).to_string()))
+        .filter_map(|p| {
+            p.find_child(kinds::IDENTIFIER)
+                .map(|i| i.text(source).to_string())
+        })
         .collect();
 
     Some(MethodInfo {
@@ -207,12 +218,14 @@ pub fn extract_field_info<'a>(node: Node<'a>, source: &str) -> Option<FieldInfo>
         return None;
     }
 
-    let modifiers = node.find_child(kinds::MODIFIERS)
+    let modifiers = node
+        .find_child(kinds::MODIFIERS)
         .map(|n| extract_modifiers(n, source))
         .unwrap_or_default();
 
     // Get variable declarator
-    let name = node.find_descendants(kinds::IDENTIFIER)
+    let name = node
+        .find_descendants(kinds::IDENTIFIER)
         .first()
         .map(|n| n.text(source).to_string())?;
 
@@ -228,8 +241,18 @@ fn extract_modifiers<'a>(node: Node<'a>, source: &str) -> Vec<String> {
     let text = node.text(source);
     let mut modifiers = Vec::new();
 
-    for modifier in &["public", "private", "protected", "static", "final",
-                      "abstract", "synchronized", "volatile", "transient", "native"] {
+    for modifier in &[
+        "public",
+        "private",
+        "protected",
+        "static",
+        "final",
+        "abstract",
+        "synchronized",
+        "volatile",
+        "transient",
+        "native",
+    ] {
         if text.contains(modifier) {
             modifiers.push(modifier.to_string());
         }
@@ -299,14 +322,19 @@ pub fn calculate_metrics(source: &str) -> SourceMetrics {
     let lines: Vec<&str> = source.lines().collect();
     let total_lines = lines.len();
 
-    let code_lines = lines.iter()
+    let code_lines = lines
+        .iter()
         .filter(|l| {
             let trimmed = l.trim();
-            !trimmed.is_empty() && !trimmed.starts_with("//") && !trimmed.starts_with("/*") && !trimmed.starts_with("*")
+            !trimmed.is_empty()
+                && !trimmed.starts_with("//")
+                && !trimmed.starts_with("/*")
+                && !trimmed.starts_with("*")
         })
         .count();
 
-    let comment_lines = lines.iter()
+    let comment_lines = lines
+        .iter()
         .filter(|l| {
             let trimmed = l.trim();
             trimmed.starts_with("//") || trimmed.starts_with("/*") || trimmed.starts_with("*")
@@ -316,13 +344,17 @@ pub fn calculate_metrics(source: &str) -> SourceMetrics {
     let blank_lines = lines.iter().filter(|l| l.trim().is_empty()).count();
 
     // Count classes (simplified)
-    let class_count = Regex::new(r"\bclass\s+\w+").unwrap()
-        .find_iter(source).count();
+    let class_count = Regex::new(r"\bclass\s+\w+")
+        .unwrap()
+        .find_iter(source)
+        .count();
 
     // Count methods (simplified)
-    let method_count = Regex::new(r"(?:public|private|protected)?\s*(?:static\s+)?(?:\w+)\s+\w+\s*\([^)]*\)\s*\{")
-        .unwrap()
-        .find_iter(source).count();
+    let method_count =
+        Regex::new(r"(?:public|private|protected)?\s*(?:static\s+)?(?:\w+)\s+\w+\s*\([^)]*\)\s*\{")
+            .unwrap()
+            .find_iter(source)
+            .count();
 
     SourceMetrics {
         total_lines,
@@ -347,9 +379,7 @@ pub struct SourceMetrics {
 
 /// Extract all string literals from source
 pub fn extract_string_literals(source: &str) -> Vec<(usize, String)> {
-    static RE: Lazy<Regex> = Lazy::new(|| {
-        Regex::new(r#""([^"\\]|\\.)*""#).unwrap()
-    });
+    static RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#""([^"\\]|\\.)*""#).unwrap());
 
     let mut results = Vec::new();
     for (line_num, line) in source.lines().enumerate() {
@@ -362,9 +392,7 @@ pub fn extract_string_literals(source: &str) -> Vec<(usize, String)> {
 
 /// Extract all imports from source
 pub fn extract_imports(source: &str) -> Vec<String> {
-    static RE: Lazy<Regex> = Lazy::new(|| {
-        Regex::new(r"import\s+([\w.]+(?:\.\*)?)\s*;").unwrap()
-    });
+    static RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"import\s+([\w.]+(?:\.\*)?)\s*;").unwrap());
 
     RE.captures_iter(source)
         .filter_map(|c| c.get(1).map(|m| m.as_str().to_string()))
@@ -411,7 +439,8 @@ mod tests {
         let tree = parse_java(source).unwrap();
         let root = tree.root_node();
 
-        let class_node = root.find_descendants(kinds::CLASS_DECLARATION)
+        let class_node = root
+            .find_descendants(kinds::CLASS_DECLARATION)
             .into_iter()
             .next()
             .unwrap();

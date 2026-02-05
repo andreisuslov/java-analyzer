@@ -7,16 +7,16 @@
 //! - Code smell identification
 //! - Cognitive complexity analysis
 
-pub mod rules;
-pub mod reports;
-pub mod parser;
-pub mod quality_gate;
-pub mod duplication;
 pub mod baseline;
-pub mod debt;
-pub mod hotspots;
 pub mod cache;
 pub mod coverage;
+pub mod debt;
+pub mod duplication;
+pub mod hotspots;
+pub mod parser;
+pub mod quality_gate;
+pub mod reports;
+pub mod rules;
 
 use std::collections::HashMap;
 use std::fs;
@@ -28,15 +28,19 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use walkdir::WalkDir;
 
-pub use rules::{Rule, RuleCategory, Severity, Issue, AnalysisContext, OwaspCategory};
+pub use baseline::{compare_with_baseline, Baseline, DifferentialResult, IssueFingerprint};
+pub use cache::{hash_config, AnalysisCache, CacheEntry, CacheStats};
+pub use coverage::{load_coverage, parse_jacoco_xml, parse_lcov, CoverageReport, FileCoverage};
+pub use debt::{format_debt, DebtBreakdown, DebtRating, DebtSummary};
+pub use duplication::{
+    CodeLocation, DuplicateBlock, DuplicationConfig, DuplicationDetector, DuplicationResult,
+};
+pub use hotspots::{
+    HotspotCategory, HotspotPriority, HotspotResult, HotspotStatus, SecurityHotspot,
+};
+pub use quality_gate::{ConditionResult, QualityCondition, QualityGate, QualityGateResult};
 pub use reports::{Report, ReportFormat};
-pub use quality_gate::{QualityGate, QualityCondition, QualityGateResult, ConditionResult};
-pub use duplication::{DuplicationDetector, DuplicationConfig, DuplicationResult, DuplicateBlock, CodeLocation};
-pub use baseline::{Baseline, IssueFingerprint, DifferentialResult, compare_with_baseline};
-pub use debt::{DebtSummary, DebtRating, DebtBreakdown, format_debt};
-pub use hotspots::{SecurityHotspot, HotspotResult, HotspotStatus, HotspotPriority, HotspotCategory};
-pub use cache::{AnalysisCache, CacheEntry, CacheStats, hash_config};
-pub use coverage::{CoverageReport, FileCoverage, load_coverage, parse_lcov, parse_jacoco_xml};
+pub use rules::{AnalysisContext, Issue, OwaspCategory, Rule, RuleCategory, Severity};
 
 /// Configuration for the analyzer
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -86,11 +90,9 @@ impl Default for AnalyzerConfig {
 impl AnalyzerConfig {
     /// Load configuration from a TOML file
     pub fn from_file(path: &Path) -> Result<Self, ConfigError> {
-        let content = fs::read_to_string(path)
-            .map_err(|e| ConfigError::IoError(e.to_string()))?;
+        let content = fs::read_to_string(path).map_err(|e| ConfigError::IoError(e.to_string()))?;
 
-        toml::from_str(&content)
-            .map_err(|e| ConfigError::ParseError(e.to_string()))
+        toml::from_str(&content).map_err(|e| ConfigError::ParseError(e.to_string()))
     }
 
     /// Try to find and load config from standard locations
@@ -262,12 +264,14 @@ impl Analyzer {
         let java_files: Vec<PathBuf> = WalkDir::new(path)
             .into_iter()
             .filter_map(|e| e.ok())
-            .filter(|e| {
-                e.path().extension().map_or(false, |ext| ext == "java")
-            })
+            .filter(|e| e.path().extension().map_or(false, |ext| ext == "java"))
             .filter(|e| {
                 let path_str = e.path().to_string_lossy();
-                !self.config.exclude_patterns.iter().any(|p| path_str.contains(p))
+                !self
+                    .config
+                    .exclude_patterns
+                    .iter()
+                    .any(|p| path_str.contains(p))
             })
             .map(|e| e.path().to_path_buf())
             .collect();
