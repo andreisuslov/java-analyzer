@@ -26,6 +26,7 @@
 #![allow(clippy::trim_split_whitespace)]
 #![allow(dead_code)]
 
+pub mod autofix;
 pub mod baseline;
 pub mod cache;
 pub mod coverage;
@@ -37,6 +38,8 @@ pub mod parser;
 pub mod quality_gate;
 pub mod reports;
 pub mod rules;
+pub mod suppression;
+pub mod watch;
 
 use std::collections::HashMap;
 use std::fs;
@@ -64,7 +67,10 @@ pub use reports::{Report, ReportFormat};
 pub use rules::custom::{
     load_custom_rules, CustomRule, CustomRuleConfig, CustomRuleError, CustomRulesConfig,
 };
+pub use autofix::{apply_fix, to_camel_case, to_pascal_case, to_upper_snake_case, Fix, TextEdit};
 pub use rules::{AnalysisContext, Issue, OwaspCategory, Rule, RuleCategory, Severity};
+pub use suppression::{Suppression, SuppressionIndex};
+pub use watch::{DebounceState, FileWatcher, WatchConfig, WatchEvent};
 
 /// Configuration for the analyzer
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -207,6 +213,10 @@ pub struct Analyzer {
     rules: Vec<Box<dyn Rule>>,
     config: AnalyzerConfig,
     custom_rules_error: Option<String>,
+    /// Optional cache for incremental analysis
+    cache: Option<std::sync::Arc<std::sync::Mutex<AnalysisCache>>>,
+    /// Path to cache file (for persistence)
+    cache_path: Option<PathBuf>,
 }
 
 impl Analyzer {
@@ -236,7 +246,76 @@ impl Analyzer {
             rules,
             config,
             custom_rules_error,
+            cache: None,
+            cache_path: None,
         }
+    }
+
+    /// Create an analyzer with caching enabled
+    pub fn with_cache(config: AnalyzerConfig, cache_path: PathBuf) -> Self {
+        let mut analyzer = Self::with_config(config.clone());
+
+        // Calculate config hash for cache invalidation
+        let config_hash = hash_config(&config);
+
+        // Try to load existing cache, or create new one
+        let cache = if cache_path.exists() {
+            match AnalysisCache::load(&cache_path) {
+                Ok(loaded) => {
+                    if loaded.is_compatible(env!("CARGO_PKG_VERSION"), config_hash) {
+                        loaded
+                    } else {
+                        // Cache is incompatible, create new one
+                        AnalysisCache::new(env!("CARGO_PKG_VERSION"), config_hash)
+                    }
+                }
+                Err(_) => AnalysisCache::new(env!("CARGO_PKG_VERSION"), config_hash),
+            }
+        } else {
+            AnalysisCache::new(env!("CARGO_PKG_VERSION"), config_hash)
+        };
+
+        analyzer.cache = Some(std::sync::Arc::new(std::sync::Mutex::new(cache)));
+        analyzer.cache_path = Some(cache_path);
+        analyzer
+    }
+
+    /// Enable caching with default cache path
+    pub fn enable_cache(&mut self) {
+        let config_hash = hash_config(&self.config);
+        let cache_path = cache::default_cache_path();
+
+        let cache = if cache_path.exists() {
+            match AnalysisCache::load(&cache_path) {
+                Ok(loaded) => {
+                    if loaded.is_compatible(env!("CARGO_PKG_VERSION"), config_hash) {
+                        loaded
+                    } else {
+                        AnalysisCache::new(env!("CARGO_PKG_VERSION"), config_hash)
+                    }
+                }
+                Err(_) => AnalysisCache::new(env!("CARGO_PKG_VERSION"), config_hash),
+            }
+        } else {
+            AnalysisCache::new(env!("CARGO_PKG_VERSION"), config_hash)
+        };
+
+        self.cache = Some(std::sync::Arc::new(std::sync::Mutex::new(cache)));
+        self.cache_path = Some(cache_path);
+    }
+
+    /// Save cache to disk
+    pub fn save_cache(&self) -> Result<(), cache::CacheError> {
+        if let (Some(cache), Some(path)) = (&self.cache, &self.cache_path) {
+            let cache = cache.lock().unwrap();
+            cache.save(path)?;
+        }
+        Ok(())
+    }
+
+    /// Get cache statistics
+    pub fn cache_stats(&self) -> Option<CacheStats> {
+        self.cache.as_ref().map(|c| c.lock().unwrap().stats())
     }
 
     /// Get the error that occurred when loading custom rules (if any)
@@ -278,9 +357,23 @@ impl Analyzer {
 
     /// Analyze a single file
     pub fn analyze_file(&self, path: &Path) -> Vec<Issue> {
+        self.analyze_file_with_cache_info(path).0
+    }
+
+    /// Analyze a single file and return (issues, was_cache_hit)
+    fn analyze_file_with_cache_info(&self, path: &Path) -> (Vec<Issue>, bool) {
+        // Check cache first
+        if let Some(ref cache) = self.cache {
+            let cache_guard = cache.lock().unwrap();
+            if let Some(entry) = cache_guard.get(path) {
+                return (entry.issues.clone(), true);
+            }
+        }
+
+        // Cache miss - perform full analysis
         let source = match fs::read_to_string(path) {
             Ok(s) => s,
-            Err(_) => return Vec::new(),
+            Err(_) => return (Vec::new(), false),
         };
 
         let mut parser = tree_sitter::Parser::new();
@@ -288,7 +381,7 @@ impl Analyzer {
 
         let tree = match parser.parse(&source, None) {
             Some(t) => t,
-            None => return Vec::new(),
+            None => return (Vec::new(), false),
         };
 
         let ctx = AnalysisContext {
@@ -305,14 +398,25 @@ impl Analyzer {
             issues.extend(rule.check(&ctx));
         }
 
-        issues
+        // Filter out suppressed issues (NOSONAR comments, @SuppressWarnings)
+        let suppressions = suppression::SuppressionIndex::parse(&source);
+        let issues = suppressions.filter_issues(issues);
+
+        // Update cache
+        if let Some(ref cache) = self.cache {
+            let mut cache_guard = cache.lock().unwrap();
+            cache_guard.update(path, issues.clone());
+        }
+
+        (issues, false)
     }
 
     /// Analyze a directory recursively
     pub fn analyze_directory(&self, path: &Path) -> AnalysisResult {
         let start = Instant::now();
         let files_count = AtomicUsize::new(0);
-        let issues_count = AtomicUsize::new(0);
+        let cache_hits = AtomicUsize::new(0);
+        let cache_misses = AtomicUsize::new(0);
 
         // Collect Java files
         let java_files: Vec<PathBuf> = WalkDir::new(path)
@@ -335,8 +439,12 @@ impl Analyzer {
             .par_iter()
             .flat_map(|path| {
                 files_count.fetch_add(1, Ordering::Relaxed);
-                let issues = self.analyze_file(path);
-                issues_count.fetch_add(issues.len(), Ordering::Relaxed);
+                let (issues, was_hit) = self.analyze_file_with_cache_info(path);
+                if was_hit {
+                    cache_hits.fetch_add(1, Ordering::Relaxed);
+                } else {
+                    cache_misses.fetch_add(1, Ordering::Relaxed);
+                }
                 issues
             })
             .collect();
@@ -367,6 +475,8 @@ impl Analyzer {
             issues: all_issues,
             duration_ms: duration.as_millis() as u64,
             modules: module_structure,
+            cache_hits: cache_hits.load(Ordering::Relaxed),
+            cache_misses: cache_misses.load(Ordering::Relaxed),
         }
     }
 
@@ -374,7 +484,7 @@ impl Analyzer {
     pub fn analyze(&self, path: &Path) -> AnalysisResult {
         if path.is_file() {
             let start = Instant::now();
-            let issues = self.analyze_file(path);
+            let (issues, was_hit) = self.analyze_file_with_cache_info(path);
             let duration = start.elapsed();
 
             AnalysisResult {
@@ -382,6 +492,8 @@ impl Analyzer {
                 issues,
                 duration_ms: duration.as_millis() as u64,
                 modules: None,
+                cache_hits: if was_hit { 1 } else { 0 },
+                cache_misses: if was_hit { 0 } else { 1 },
             }
         } else {
             self.analyze_directory(path)
@@ -404,6 +516,12 @@ pub struct AnalysisResult {
     /// Module structure (for multi-module projects)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub modules: Option<ModuleStructure>,
+    /// Number of files served from cache (cache hits)
+    #[serde(default)]
+    pub cache_hits: usize,
+    /// Number of files that required fresh analysis (cache misses)
+    #[serde(default)]
+    pub cache_misses: usize,
 }
 
 impl AnalysisResult {
@@ -555,5 +673,195 @@ max_complexity = 10
         assert!(config.enabled_rules.is_none());
         assert!(config.disabled_rules.is_empty());
         assert!(!config.exclude_patterns.is_empty());
+    }
+
+    // ===== Suppression Integration Tests =====
+
+    #[test]
+    fn test_nosonar_suppresses_issues() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("Test.java");
+
+        // This code has a class naming violation (lowercase 'test')
+        // but it's suppressed with NOSONAR
+        let code = r#"public class test {} // NOSONAR"#;
+        fs::write(&file_path, code).unwrap();
+
+        let analyzer = Analyzer::new();
+        let issues = analyzer.analyze_file(&file_path);
+
+        // S101 (class naming) should be suppressed
+        assert!(
+            !issues.iter().any(|i| i.rule_id == "S101"),
+            "S101 should be suppressed by NOSONAR"
+        );
+    }
+
+    #[test]
+    fn test_nosonar_specific_rule_suppression() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("Test.java");
+
+        // Suppress only S101, not other rules on the same line
+        let code = r#"public class test {} // NOSONAR S101"#;
+        fs::write(&file_path, code).unwrap();
+
+        let analyzer = Analyzer::new();
+        let issues = analyzer.analyze_file(&file_path);
+
+        // S101 should be suppressed
+        assert!(
+            !issues.iter().any(|i| i.rule_id == "S101"),
+            "S101 should be suppressed by NOSONAR S101"
+        );
+    }
+
+    #[test]
+    fn test_without_nosonar_issues_reported() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("Test.java");
+
+        // This code has a class naming violation without suppression
+        let code = r#"public class test {}"#;
+        fs::write(&file_path, code).unwrap();
+
+        let analyzer = Analyzer::new();
+        let issues = analyzer.analyze_file(&file_path);
+
+        // S101 should be reported
+        assert!(
+            issues.iter().any(|i| i.rule_id == "S101"),
+            "S101 should be reported without NOSONAR"
+        );
+    }
+
+    // ===== Incremental Cache Integration Tests =====
+
+    #[test]
+    fn test_cache_miss_on_first_analysis() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("Test.java");
+        let cache_path = temp_dir.path().join(".cache.json");
+
+        fs::write(&file_path, "public class test {}").unwrap();
+
+        let config = AnalyzerConfig::default();
+        let analyzer = Analyzer::with_cache(config, cache_path);
+        let result = analyzer.analyze(&file_path);
+
+        assert_eq!(result.files_analyzed, 1);
+        assert_eq!(result.cache_hits, 0, "First analysis should be a cache miss");
+        assert_eq!(result.cache_misses, 1, "First analysis should be a cache miss");
+    }
+
+    #[test]
+    fn test_cache_hit_on_second_analysis() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("Test.java");
+        let cache_path = temp_dir.path().join(".cache.json");
+
+        fs::write(&file_path, "public class test {}").unwrap();
+
+        let config = AnalyzerConfig::default();
+        let analyzer = Analyzer::with_cache(config, cache_path);
+
+        // First analysis - cache miss
+        let r1 = analyzer.analyze(&file_path);
+        assert_eq!(r1.cache_misses, 1);
+
+        // Second analysis - should be cache hit
+        let r2 = analyzer.analyze(&file_path);
+        assert_eq!(r2.cache_hits, 1, "Second analysis should be a cache hit");
+        assert_eq!(r2.cache_misses, 0);
+
+        // Issues should be the same
+        assert_eq!(r1.issues.len(), r2.issues.len());
+    }
+
+    #[test]
+    fn test_cache_miss_after_file_modification() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("Test.java");
+        let cache_path = temp_dir.path().join(".cache.json");
+
+        fs::write(&file_path, "public class test {}").unwrap();
+
+        let config = AnalyzerConfig::default();
+        let analyzer = Analyzer::with_cache(config, cache_path);
+
+        // First analysis
+        let _r1 = analyzer.analyze(&file_path);
+
+        // Modify file (add small delay to ensure mtime changes)
+        std::thread::sleep(std::time::Duration::from_millis(100));
+        fs::write(&file_path, "public class Test {}").unwrap();
+
+        // Second analysis should be cache miss due to file change
+        let r2 = analyzer.analyze(&file_path);
+        assert_eq!(r2.cache_misses, 1, "Modified file should cause cache miss");
+    }
+
+    #[test]
+    fn test_cache_persistence() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("Test.java");
+        let cache_path = temp_dir.path().join(".cache.json");
+
+        fs::write(&file_path, "public class test {}").unwrap();
+
+        // First analyzer instance - analyze and save cache
+        {
+            let config = AnalyzerConfig::default();
+            let analyzer = Analyzer::with_cache(config, cache_path.clone());
+            let _r1 = analyzer.analyze(&file_path);
+            analyzer.save_cache().unwrap();
+        }
+
+        // Second analyzer instance - should load cache and get hit
+        {
+            let config = AnalyzerConfig::default();
+            let analyzer = Analyzer::with_cache(config, cache_path);
+            let r2 = analyzer.analyze(&file_path);
+            assert_eq!(r2.cache_hits, 1, "Loaded cache should provide cache hit");
+        }
+    }
+
+    #[test]
+    fn test_no_cache_without_enable() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("Test.java");
+
+        fs::write(&file_path, "public class test {}").unwrap();
+
+        let analyzer = Analyzer::new(); // No cache enabled
+        let result = analyzer.analyze(&file_path);
+
+        // Without cache, always shows as miss
+        assert_eq!(result.cache_hits, 0);
+        assert_eq!(result.cache_misses, 1);
+    }
+
+    #[test]
+    fn test_cache_stats() {
+        let temp_dir = TempDir::new().unwrap();
+        let cache_path = temp_dir.path().join(".cache.json");
+
+        // Create multiple files
+        for i in 0..3 {
+            let file_path = temp_dir.path().join(format!("Test{}.java", i));
+            fs::write(&file_path, format!("public class Test{} {{}}", i)).unwrap();
+        }
+
+        let config = AnalyzerConfig::default();
+        let analyzer = Analyzer::with_cache(config, cache_path);
+
+        // Analyze directory
+        let _result = analyzer.analyze(temp_dir.path());
+
+        // Check cache stats
+        let stats = analyzer.cache_stats();
+        assert!(stats.is_some());
+        let stats = stats.unwrap();
+        assert_eq!(stats.total_entries, 3);
     }
 }

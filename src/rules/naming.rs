@@ -1,6 +1,7 @@
 //! Naming convention rules (S100-S120, etc.)
 
 use super::*;
+use crate::autofix::{to_camel_case, to_pascal_case, to_upper_snake_case, Fix, TextEdit};
 use tree_sitter::{Query, QueryCursor};
 
 pub fn create_rules() -> Vec<Box<dyn Rule>> {
@@ -97,14 +98,25 @@ impl Rule for S100MethodNaming {
                 let name = &ctx.source[cap.node.byte_range()];
                 // Skip common exceptions
                 if !PATTERN.is_match(name) && !is_method_exception(name) {
-                    issues.push(create_issue(
+                    let line = cap.node.start_position().row + 1;
+                    let start_col = cap.node.start_position().column + 1;
+                    let end_col = cap.node.end_position().column + 1;
+
+                    // Generate fix: convert to camelCase
+                    let fixed_name = to_camel_case(name);
+                    let fix = Fix::new(format!("Rename to '{}'", fixed_name))
+                        .with_edit(TextEdit::replace_range(line, start_col, end_col, &fixed_name));
+
+                    let mut issue = create_issue(
                         self,
                         ctx.file_path,
-                        cap.node.start_position().row + 1,
-                        cap.node.start_position().column + 1,
+                        line,
+                        start_col,
                         format!("Rename method '{}' to match camelCase convention", name),
                         Some(name.to_string()),
-                    ));
+                    );
+                    issue.fix = Some(fix);
+                    issues.push(issue);
                 }
             }
         }
@@ -148,14 +160,25 @@ impl Rule for S101ClassNaming {
             for cap in m.captures {
                 let name = &ctx.source[cap.node.byte_range()];
                 if !PATTERN.is_match(name) {
-                    issues.push(create_issue(
+                    let line = cap.node.start_position().row + 1;
+                    let start_col = cap.node.start_position().column + 1;
+                    let end_col = cap.node.end_position().column + 1;
+
+                    // Generate fix: convert to PascalCase
+                    let fixed_name = to_pascal_case(name);
+                    let fix = Fix::new(format!("Rename to '{}'", fixed_name))
+                        .with_edit(TextEdit::replace_range(line, start_col, end_col, &fixed_name));
+
+                    let mut issue = create_issue(
                         self,
                         ctx.file_path,
-                        cap.node.start_position().row + 1,
-                        cap.node.start_position().column + 1,
+                        line,
+                        start_col,
                         format!("Rename class '{}' to match PascalCase convention", name),
                         Some(name.to_string()),
-                    ));
+                    );
+                    issue.fix = Some(fix);
+                    issues.push(issue);
                 }
             }
         }
@@ -242,14 +265,25 @@ impl Rule for S115ConstantNaming {
                         && !name_str.starts_with("log")
                         && name_str != "serialVersionUID"
                     {
-                        issues.push(create_issue(
+                        let line_number = line_num + 1;
+                        let start_col = name.start() + 1;
+                        let end_col = name.end() + 1;
+
+                        // Generate fix: convert to UPPER_SNAKE_CASE
+                        let fixed_name = to_upper_snake_case(name_str);
+                        let fix = Fix::new(format!("Rename to '{}'", fixed_name))
+                            .with_edit(TextEdit::replace_range(line_number, start_col, end_col, &fixed_name));
+
+                        let mut issue = create_issue(
                             self,
                             ctx.file_path,
-                            line_num + 1,
-                            name.start() + 1,
+                            line_number,
+                            start_col,
                             format!("Rename constant '{}' to UPPER_SNAKE_CASE", name_str),
                             Some(name_str.to_string()),
-                        ));
+                        );
+                        issue.fix = Some(fix);
+                        issues.push(issue);
                     }
                 }
             }
@@ -1100,5 +1134,69 @@ mod tests {
         "#;
         let issues = analyze_code(code, &S115ConstantNaming);
         assert_eq!(issues.len(), 2, "Bad constant names should be flagged");
+    }
+
+    // ===== Auto-fix Generation Tests =====
+
+    #[test]
+    fn test_s100_generates_fix() {
+        let code = r#"
+            public class Test {
+                public void BadMethod() {}
+            }
+        "#;
+        let issues = analyze_code(code, &S100MethodNaming);
+        assert_eq!(issues.len(), 1);
+
+        let issue = &issues[0];
+        assert!(issue.fix.is_some(), "S100 should generate a fix");
+
+        let fix = issue.fix.as_ref().unwrap();
+        assert_eq!(fix.edits.len(), 1);
+        assert_eq!(fix.edits[0].replacement, "badMethod");
+        assert!(fix.message.contains("badMethod"));
+    }
+
+    #[test]
+    fn test_s101_generates_fix() {
+        let code = r#"public class test_class {}"#;
+        let issues = analyze_code(code, &S101ClassNaming);
+        assert_eq!(issues.len(), 1);
+
+        let issue = &issues[0];
+        assert!(issue.fix.is_some(), "S101 should generate a fix");
+
+        let fix = issue.fix.as_ref().unwrap();
+        assert_eq!(fix.edits.len(), 1);
+        assert_eq!(fix.edits[0].replacement, "TestClass");
+    }
+
+    #[test]
+    fn test_s115_generates_fix() {
+        let code = r#"public class Test { public static final int maxValue = 100; }"#;
+        let issues = analyze_code(code, &S115ConstantNaming);
+        assert_eq!(issues.len(), 1);
+
+        let issue = &issues[0];
+        assert!(issue.fix.is_some(), "S115 should generate a fix");
+
+        let fix = issue.fix.as_ref().unwrap();
+        assert_eq!(fix.edits.len(), 1);
+        assert_eq!(fix.edits[0].replacement, "MAX_VALUE");
+    }
+
+    #[test]
+    fn test_fix_has_correct_position() {
+        let code = r#"public void BadMethod() {}"#;
+        let issues = analyze_code(code, &S100MethodNaming);
+        assert_eq!(issues.len(), 1);
+
+        let fix = issues[0].fix.as_ref().unwrap();
+        let edit = &fix.edits[0];
+
+        // "BadMethod" starts at column 13 (1-indexed)
+        assert_eq!(edit.start_line, 1);
+        assert_eq!(edit.start_column, 13);
+        assert_eq!(edit.end_line, 1);
     }
 }

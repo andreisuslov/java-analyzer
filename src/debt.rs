@@ -256,6 +256,7 @@ mod tests {
             cwe: None,
             debt_minutes: debt,
             module: None,
+            fix: None,
         }
     }
 
@@ -265,6 +266,8 @@ mod tests {
             issues,
             duration_ms: 100,
             modules: None,
+            cache_hits: 0,
+            cache_misses: 0,
         }
     }
 

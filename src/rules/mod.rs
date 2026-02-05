@@ -9,6 +9,7 @@ pub mod custom;
 mod naming;
 mod security;
 
+use crate::autofix::Fix;
 use serde::{Deserialize, Serialize};
 
 use crate::AnalyzerConfig;
@@ -133,6 +134,9 @@ pub struct Issue {
     /// Module name (for multi-module projects)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub module: Option<String>,
+    /// Suggested auto-fix (if available)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fix: Option<Fix>,
 }
 
 /// Context for rule analysis
@@ -228,7 +232,23 @@ pub fn create_issue(
         cwe: rule.cwe(),
         debt_minutes: rule.debt_minutes(),
         module: None,
+        fix: None,
     }
+}
+
+/// Helper to create an issue with an auto-fix
+pub fn create_issue_with_fix(
+    rule: &dyn Rule,
+    file: &str,
+    line: usize,
+    column: usize,
+    message: String,
+    snippet: Option<String>,
+    fix: Fix,
+) -> Issue {
+    let mut issue = create_issue(rule, file, line, column, message, snippet);
+    issue.fix = Some(fix);
+    issue
 }
 
 // Re-export Lazy and Regex for submodules

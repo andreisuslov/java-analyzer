@@ -729,6 +729,7 @@ mod tests {
                     cwe: None,
                     debt_minutes: 5,
                     module: None,
+                    fix: None,
                 },
                 Issue {
                     rule_id: "S2068".to_string(),
@@ -746,9 +747,12 @@ mod tests {
                     cwe: Some(798),
                     debt_minutes: 30,
                     module: None,
+                    fix: None,
                 },
             ],
             modules: None,
+            cache_hits: 0,
+            cache_misses: 0,
         }
     }
 
@@ -866,6 +870,7 @@ mod tests {
             cwe: None,
             debt_minutes: 5,
             module: None,
+            fix: None,
         };
 
         let issue2 = Issue {
@@ -884,6 +889,7 @@ mod tests {
             cwe: None,
             debt_minutes: 5,
             module: None,
+            fix: None,
         };
 
         let fp1 = Report::generate_fingerprint(&issue1);
@@ -957,6 +963,8 @@ mod tests {
             issues: vec![],
             duration_ms: 0,
             modules: None,
+            cache_hits: 0,
+            cache_misses: 0,
         };
         let report = Report::new()
             .with_format(ReportFormat::GitLabCodeQuality)
@@ -1010,6 +1018,7 @@ mod tests {
             cwe,
             debt_minutes: 10,
             module: None,
+            fix: None,
         }
     }
 
@@ -1087,6 +1096,7 @@ mod tests {
                 cwe: None,
                 debt_minutes: 5,
                 module: None,
+                fix: None,
             },
         ];
         let grouped = group_by_owasp(&issues);
@@ -1116,6 +1126,7 @@ mod tests {
                 cwe: None, // No CWE mapping
                 debt_minutes: 5,
                 module: None,
+                fix: None,
             },
         ];
         let grouped = group_by_cwe(&issues);

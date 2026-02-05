@@ -288,6 +288,7 @@ mod tests {
             cwe: None,
             debt_minutes: 30,
             module: None,
+            fix: None,
         }
     }
 
@@ -297,6 +298,8 @@ mod tests {
             issues,
             duration_ms: 100,
             modules: None,
+            cache_hits: 0,
+            cache_misses: 0,
         }
     }
 
@@ -490,6 +493,7 @@ mod tests {
             cwe: None,
             debt_minutes: 5,
             module: None,
+            fix: None,
         };
         assert!(!is_security_hotspot(&issue));
     }
